@@ -1,0 +1,182 @@
+{
+  "name": "Inicio_de_sesion_farmaceuticos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "10824f7f-e50f-4843-9c6e-49e6baf293e8",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "609d51aa-5471-45ae-b13e-25bbfc675d24",
+      "name": "Webhook",
+      "webhookId": "10824f7f-e50f-4843-9c6e-49e6baf293e8"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Personal_farmacia",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "usuario",
+              "condition": "ilike",
+              "keyValue": "={{ $json.body.usuario }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "0fc4dd0b-8027-4e84-8d22-d0c1c4b9daf6",
+      "name": "Get many rows",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"autenticado\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        752,
+        -16
+      ],
+      "id": "1734e165-77d7-4fb3-8d55-c9a48040191b",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "effe30f2-48e4-4589-a39a-4697f5ba2019",
+              "leftValue": "={{ $json.contrasena }}",
+              "rightValue": "={{ $('Webhook').item.json.body.contrasena }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c569145f-2ffb-4841-9bc8-d30f40e3b321",
+              "leftValue": "={{ $json.usuario }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "6c0ca11c-cb81-4c26-9f1c-be8c89d978b2",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": false,\n  \"mensaje\": \"Usuario o contraseña incorrectos. Por favor, verifica tus credenciales.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        592,
+        96
+      ],
+      "id": "85f7721b-0b3e-412a-b42d-0419e12e2d20",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f9ff726a-1904-4ae3-b20f-2cf1b02ff108",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fe604dda130d191874c5383220465f43ac708c8696a6c73a448a488f35a6b605"
+  },
+  "nodeGroups": [],
+  "id": "qGqLYbxWIDVHhJDb",
+  "tags": []
+}

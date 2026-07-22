@@ -1,0 +1,242 @@
+{
+  "name": "Inicio_sesion_usuarios_pacientes_eps",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "b7490a83-09b6-4c6e-a8ce-24a8c78894e5",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -320,
+        -32
+      ],
+      "id": "c5d97dca-d540-47e7-a90d-be5d62f83be8",
+      "name": "Webhook1",
+      "webhookId": "b7490a83-09b6-4c6e-a8ce-24a8c78894e5"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Pacientes",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Cedula",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.cedula }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -32
+      ],
+      "id": "bd6da57d-fee5-49ef-980c-3135dc0d49ad",
+      "name": "Get many rows",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  \"ok\": true,\n  \"autenticado\": true,\n  \"cedula\": $(\"Get many rows\").item.json.Cedula || $(\"Get many rows\").item.json.cedula,\n  \"nombre_completo\": $(\"Get many rows\").item.json.Nombre || $(\"Get many rows\").item.json.nombre || \"Paciente Asegurado\",\n  \"tickets_activos\": $(\"Get many rows1\").all()\n    .filter(item => item.json && item.json.id)\n    .map(item => {\n      // 1. Calcular el formato del turno correcto\n      const ticketTurno = item.json.turno || \"T-\" + (parseInt(item.json.id) + 99);\n      \n      // 2. Detectar dinámicamente si los medicamentos requieren cadena de frío\n      const medsTexto = (item.json.medicamentos_solicitados || \"\").toLowerCase();\n      const requiereNevera = medsTexto.includes(\"insulina\") || medsTexto.includes(\"vacuna\") || medsTexto.includes(\"refrig\");\n      \n      const mensajeAlerta = requiereNevera \n        ? \"Su turno expira en 72 horas. ❄️ REQUISITO OBLIGATORIO: Debe llevar NEVERA REFRIGERANTE o aislante térmico para la entrega de sus medicamentos.\"\n        : \"Su turno expira en 72 horas.\";\n\n      // 3. Mapear los medicamentos y cantidades para que no se rompan al re-ingresar\n      const listaMeds = (item.json.medicamentos_solicitados || \"\").split(\",\").map(m => m.trim());\n      const listaCants = (item.json.cantidad || \"\").split(\",\").map(c => c.trim());\n\n      const aprobadosMapeados = listaMeds.map((nombreMed, index) => {\n        const cantAsignada = listaCants[index] || \"1\";\n        return {\n          \"nombre\": nombreMed,\n          \"presentacion\": nombreMed.toLowerCase().includes(\"insulina\") || nombreMed.toLowerCase().includes(\"vacuna\") ? \"Inyección\" : \"Ampolla\",\n          \"cantidad\": parseInt(cantAsignada),\n          \"Cant\": parseInt(cantAsignada),\n          \"cant\": parseInt(cantAsignada)\n        }\n      });\n\n      return {\n        \"id\": item.json.id,\n        \"turno\": ticketTurno,\n        \"advertencia\": mensajeAlerta,\n        \"mensaje\": mensajeAlerta,\n        \"indicaciones\": mensajeAlerta,\n        \"nota\": mensajeAlerta,\n        \"instrucciones\": mensajeAlerta,\n        \"indicaciones_entrega\": mensajeAlerta,\n        \"aprobados\": aprobadosMapeados,\n        \"medicamentos\": aprobadosMapeados,\n        \"created_at\": item.json.Fecha_creacion || item.json.created_at\n      }\n    })\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        544,
+        -48
+      ],
+      "id": "aac3497a-9a41-4319-9314-635c37d01620",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f7e1fe1b-73f8-4403-b7ad-2636d1d0b81d",
+              "leftValue": "={{ $json.Cedula }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        112,
+        -32
+      ],
+      "id": "f0b9550b-4bda-4cd6-925b-e5ab2c8551c7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \n  \"ok\": false \n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        544,
+        96
+      ],
+      "id": "20e72fd1-b2a8-4c51-9278-6137b75e248a",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "content": "Inicio de sesion usuarios pacientes\n",
+        "height": 320,
+        "width": 1076,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -336,
+        -80
+      ],
+      "typeVersion": 1,
+      "id": "16eb6162-0c15-4c51-b3a0-3e2401a50952",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Pedidos",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cedula",
+              "condition": "eq",
+              "keyValue": "={{ $json.Cedula }}"
+            },
+            {
+              "keyName": "estado",
+              "condition": "neq",
+              "keyValue": "entregado"
+            },
+            {
+              "keyName": "estado",
+              "condition": "neq",
+              "keyValue": "esperando_reabastecimiento"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        336,
+        -48
+      ],
+      "id": "4c4c6df9-3bbf-43e0-9c38-5452650a74ac",
+      "name": "Get many rows1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Get many rows1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "31bdb9a7-eaf3-4405-bb7b-be22ced9f9be",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fe604dda130d191874c5383220465f43ac708c8696a6c73a448a488f35a6b605"
+  },
+  "nodeGroups": [],
+  "id": "5lSneHsMRjWKc2wL",
+  "tags": []
+}

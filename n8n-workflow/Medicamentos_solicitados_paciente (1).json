@@ -1,0 +1,924 @@
+{
+  "name": "Medicamentos_solicitados_paciente",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "f71d2eed-2340-4b45-8c27-5908aff17c15",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        32,
+        944
+      ],
+      "id": "077194f9-9488-4e7e-b133-e430c13894f3",
+      "name": "Webhook3",
+      "webhookId": "f71d2eed-2340-4b45-8c27-5908aff17c15"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4b51a22e-dbe2-4d5d-9982-4f6280542932",
+              "name": "estado",
+              "value": "pendiente",
+              "type": "string"
+            },
+            {
+              "id": "eb8d3fad-d055-467b-a56a-dc07c0a4e90f",
+              "name": "nombre",
+              "value": "={{ $json.body.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "1606747c-0117-4126-86d5-23460130b9b8",
+              "name": "cedula",
+              "value": "={{ $json.body.cedula }}",
+              "type": "string"
+            },
+            {
+              "id": "a3103ad5-a81d-4589-b5d0-2265a87e7acf",
+              "name": "medicamentos_solicitados",
+              "value": "={{ $json.body.medicamentos_solicitados.map(m => m.nombre).join(', ') }}",
+              "type": "array"
+            },
+            {
+              "id": "8cad6a6d-c4fb-45d2-a6fb-7fe9abf7c529",
+              "name": "Fecha_creacion",
+              "value": "={{ $now.setZone('America/Bogota').toFormat('yyyy-MM-dd HH:mm:ss') }}",
+              "type": "string"
+            },
+            {
+              "id": "678de18e-fe0f-4b45-ab30-6633f29a2de5",
+              "name": "cantidad_solicitados",
+              "value": "={{ $json.body.medicamentos_solicitados.map(m => m.cantidad).join(', ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        944
+      ],
+      "id": "6ecc0e7b-4ab2-43b7-8742-17ccb4d6e03c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "tableId": "Pedidos",
+        "dataToSend": "autoMapInputData"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        448,
+        944
+      ],
+      "id": "e3409eee-e28d-4992-a61c-501b0d9ee410",
+      "name": "Create a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Pedidos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "turno",
+              "fieldValue": "={{ \"T-\" + Date.now().toString().slice(-4) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        656,
+        944
+      ],
+      "id": "9366266b-1a9c-42a7-8353-79eb7a18b757",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ...$('Code in JavaScript').item.json, turno: $('Update a row1').item.json.turno } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2128,
+        928
+      ],
+      "id": "ff0f9d84-c4cb-46e4-beec-22ccbb10ee80",
+      "name": "Respond to Webhook4"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1264,
+        944
+      ],
+      "id": "fbb3ba7f-0edc-4494-bc07-85beaba09c87",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "medicamentos_reales",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        944
+      ],
+      "id": "08e6e25b-a659-49d7-872c-5d3db79af786",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Medicamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nombre_medicamento",
+              "condition": "ilike",
+              "keyValue": "={{ $json.nombre.trim() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        1088
+      ],
+      "id": "dde37a7b-9014-431e-b259-0823be9d9a7e",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "673eeedc-b965-4898-a287-22fe90991ae7",
+              "name": "medicamentos_reales",
+              "value": "={{ $('Webhook3').item.json.body.medicamentos_solicitados }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        864,
+        944
+      ],
+      "id": "a52cda83-aedc-4064-b81d-4812c38f68b7",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "658fabef-72e0-4d79-b9b7-ae6480d7ac78",
+              "leftValue": "={{ $json.stock }}",
+              "rightValue": "={{ $('Loop Over Items').item.json.cantidad }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1632,
+        1088
+      ],
+      "id": "1dd0551d-c240-4d89-bcda-3fe94ab36599",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1214c602-be80-4a7c-b1da-582b8c322f4b",
+              "name": "estado",
+              "value": "pendiente",
+              "type": "string"
+            },
+            {
+              "id": "a4265904-cc0f-4d7a-a822-d15fd8826693",
+              "name": "nombre_medicamento",
+              "value": "={{ $('Get many rows').item.json.nombre_medicamento }}",
+              "type": "string"
+            },
+            {
+              "id": "3a04bee2-aa30-43ff-89af-06d53e56325d",
+              "name": "cantidad_solicitados",
+              "value": "={{ $('Split Out').item.json.cantidad }}",
+              "type": "number"
+            },
+            {
+              "id": "ac59245b-fce2-41ad-b2c1-e28acc0a3fb5",
+              "name": "cantidad_entregado",
+              "value": "={{ $('Split Out').item.json.cantidad }}",
+              "type": "number"
+            },
+            {
+              "id": "a1f0f327-b953-4260-855a-6e549e6ec28e",
+              "name": "cantidad_pendiente",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1984,
+        1072
+      ],
+      "id": "851685c9-3f9e-4664-b046-cf0aabeec33d",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a60e8cef-4cce-48be-907f-436abe404e85",
+              "name": "estado",
+              "value": "esperando_reabastecimiento",
+              "type": "string"
+            },
+            {
+              "id": "bd9100a1-15b0-43d1-989f-685e2525fa76",
+              "name": "nombre_medicamento",
+              "value": "={{ $('Get many rows').item.json.nombre_medicamento }}",
+              "type": "string"
+            },
+            {
+              "id": "c672318b-a827-4dc9-918f-be71154f117f",
+              "name": "cantidad_solicitados",
+              "value": "={{ parseInt($('Split Out').item.json.cantidad) }}",
+              "type": "number"
+            },
+            {
+              "id": "6a347346-61e3-450e-bffc-493ebc091368",
+              "name": "cantidad_entregado",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "83b88f90-4b54-48d3-977e-b0bb9894142d",
+              "name": "cantidad_pendiente",
+              "value": "={{ parseInt($('Split Out').item.json.cantidad) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2000,
+        1456
+      ],
+      "id": "cd6902ce-7eac-465c-9a63-087e264989a2",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Función de lectura segura que recorre TODAS las vueltas del ciclo (runs)\nfunction leerNodoSeguro(nombreNodo) {\n  let todosLosItems = [];\n  let runIndex = 0;\n  \n  while (true) {\n    try {\n      const items = $(nombreNodo).all(0, runIndex);\n      if (!items || items.length === 0) break;\n      todosLosItems.push(...items);\n      runIndex++;\n    } catch (e) {\n      break;\n    }\n  }\n  return todosLosItems;\n}\n\n// 2. Leemos las 3 ramas del ciclo\nconst aprobados = leerNodoSeguro(\"Edit Fields2\");\nconst parciales = leerNodoSeguro(\"Edit Fields4\");\nconst sinStock  = leerNodoSeguro(\"Edit Fields3\");\n\nconst todosProcesados = [...aprobados, ...parciales, ...sinStock];\nconst itemsAEvaluar = todosProcesados.length > 0 ? todosProcesados : $input.all();\n\nlet nombres = [];\nlet cantSolicitadas = [];\nlet cantEntregadas = [];\nlet cantPendientes = [];\n\nlet listaAprobadosApp = [];\nlet listaSinStockApp = [];\n\nlet totalSolicitado = 0;\nlet totalEntregado = 0;\nlet totalPendiente = 0;\n\n// ❄️ Lista para guardar el nombre de los medicamentos de frío QUE SE VAN A ENTREGAR\nlet medsCadenaFrio = [];\nlet hayStockAgotadoEnInventario = false;\n\nfor (const item of itemsAEvaluar) {\n  const d = item.json;\n  \n  const nombre = d.nombre_medicamento || d.nombre || \"Medicamento\";\n  const sol = parseInt(d.cantidad_solicitados || d.cantidad_solicitada || d.cantidad || 0);\n  const ent = parseInt(d.cantidad_entregado !== undefined ? d.cantidad_entregado : sol);\n  const pen = parseInt(d.cantidad_pendiente !== undefined ? d.cantidad_pendiente : (sol - ent));\n  \n  // Stock que había en bodega ANTES de este despacho\n  const stockInicial = d.stock !== undefined ? parseInt(d.stock) : 0;\n  \n  // Calculamos cuántos quedarán en bodega DESPUÉS de entregar este pedido\n  const stockRestante = stockInicial - ent;\n\n  // Si quedaron unidades pendientes O si el stock resultante en bodega es 0 o menor\n  if (pen > 0 || stockRestante <= 0) {\n    hayStockAgotadoEnInventario = true;\n  }\n\n  // ❄️ Evaluamos si el medicamento requiere frío o congelación\n  const nombreLower = nombre.toLowerCase();\n  const almacenamientoLower = String(d.almacenamiento || d.tipo_almacenamiento || '').toLowerCase();\n\n  const esFrio = (\n    nombreLower.includes('insulina') || \n    nombreLower.includes('vacuna') ||\n    almacenamientoLower.includes('refrigerac') ||\n    almacenamientoLower.includes('congelac') ||\n    almacenamientoLower.includes('frio') ||\n    almacenamientoLower.includes('frío') ||\n    almacenamientoLower.includes('nevera') ||\n    d.requiere_frio === true || \n    d.cadena_frio === true || \n    d.requiere_frio === 'true'\n  );\n\n  // 🎯 REGLA CLAVE: Solo pedir nevera si requiere frío Y ADEMÁS SE VA A ENTREGAR (ent > 0)\n  if (esFrio && ent > 0) {\n    medsCadenaFrio.push(nombre);\n  }\n\n  nombres.push(nombre);\n  cantSolicitadas.push(sol);\n  cantEntregadas.push(ent);\n  cantPendientes.push(pen);\n\n  totalSolicitado += sol;\n  totalEntregado += ent;\n  totalPendiente += pen;\n\n  if (ent > 0) {\n    listaAprobadosApp.push({\n      nombre: nombre,\n      presentacion: d.presentacion || '',\n      cantidad: ent,\n      cantidad_entregada: ent,\n      cantidad_solicitada: sol\n    });\n  }\n\n  if (pen > 0) {\n    listaSinStockApp.push({\n      nombre: nombre,\n      presentacion: d.presentacion || '',\n      cantidad: pen,\n      cantidad_pendiente: pen,\n      cantidad_solicitada: sol\n    });\n  }\n}\n\n// 3. Estado general del pedido\nlet estadoGlobal = 'pendiente';\nif (totalPendiente > 0 && totalEntregado > 0) {\n  estadoGlobal = 'pendiente_parcial';\n} else if (totalEntregado === 0) {\n  estadoGlobal = 'esperando_reabastecimiento';\n}\n\n// 4. Mensaje explicativo\nlet mensajeFinal = \"Su turno expira en 72 horas.\";\n\n// ❄️ Construcción personalizada del mensaje de nevera\nif (medsCadenaFrio.length > 0) {\n  const listaNombres = medsCadenaFrio.join(', ');\n  const prefijo = medsCadenaFrio.length > 1 ? \"Los medicamentos\" : \"El medicamento\";\n  mensajeFinal += ` ❄️ ATENCIÓN: ${prefijo} (${listaNombres}) requiere(n) cadena de frío. Recuerde traer nevera portátil o termo con hielo/gel refrigerante.`;\n}\n\nif (totalPendiente > 0 && totalEntregado > 0) {\n  mensajeFinal += ` ⚠️ ATENCIÓN: Entrega parcial por inventario. Se autorizan ${totalEntregado} de ${totalSolicitado} unidad(es). Quedan ${totalPendiente} pendiente(s) por reclamar.`;\n} else if (totalEntregado === 0) {\n  mensajeFinal = \"⏳ Todos los medicamentos solicitados están en espera de reabastecimiento.\";\n}\n\n// 5. Obtener los datos del registro original\nconst registroOriginal = $('Create a row1').first() ? $('Create a row1').first().json : {};\nconst primerItem = $input.first() ? $input.first().json : {};\n\nconst turnoReal = registroOriginal.turno || primerItem.turno || \"T-100\";\n\nreturn {\n  json: {\n    id: registroOriginal.id || primerItem.id,\n    turno: turnoReal,\n    estado: estadoGlobal,\n    alerta_stock_agotado: hayStockAgotadoEnInventario,\n    nombre_medicamento: nombres.join(\", \"),\n    cantidad_solicitados: cantSolicitadas.join(\", \"),\n    cantidad_entregado: cantEntregadas.join(\", \"),\n    cantidad_pendiente: cantPendientes.join(\", \"),\n    \n    advertencia: mensajeFinal,\n    mensaje: mensajeFinal,\n    indicaciones: mensajeFinal,\n    aprobados: listaAprobadosApp,\n    sin_stock: listaSinStockApp,\n    total_solicitado: totalSolicitado,\n    total_entregado: totalEntregado,\n    total_pendiente: totalPendiente\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        928
+      ],
+      "id": "84196bfb-b911-45df-be89-0a350ed6ce0f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c3748634-c27c-4be8-90a0-867bba036461",
+              "leftValue": "={{ $json.stock }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1776,
+        1280
+      ],
+      "id": "940ba229-2143-406c-be81-9a0285efb083",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1214c602-be80-4a7c-b1da-582b8c322f4b",
+              "name": "estado",
+              "value": "pendiente_parcial",
+              "type": "string"
+            },
+            {
+              "id": "a4265904-cc0f-4d7a-a822-d15fd8826693",
+              "name": "nombre_medicamento",
+              "value": "={{ $('Get many rows').item.json.nombre_medicamento }}",
+              "type": "string"
+            },
+            {
+              "id": "3a04bee2-aa30-43ff-89af-06d53e56325d",
+              "name": "cantidad_solicitados",
+              "value": "={{ $('Split Out').item.json.cantidad }}",
+              "type": "number"
+            },
+            {
+              "id": "ac59245b-fce2-41ad-b2c1-e28acc0a3fb5",
+              "name": "cantidad_entregado",
+              "value": "={{ Math.min(Number($('Split Out').item.json.cantidad), Number($('Get many rows').item.json.stock)) }}",
+              "type": "number"
+            },
+            {
+              "id": "a1f0f327-b953-4260-855a-6e549e6ec28e",
+              "name": "cantidad_pendiente",
+              "value": "={{ Number($('Split Out').item.json.cantidad) - Math.min(Number($('Split Out').item.json.cantidad), Number($('Get many rows').item.json.stock)) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": "={{ true }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1984,
+        1264
+      ],
+      "id": "28b2ac00-275a-4d76-bf6b-996d5d49968d",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Pedidos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "estado",
+              "fieldValue": "={{ $json.estado }}"
+            },
+            {
+              "fieldId": "medicamentos_solicitados",
+              "fieldValue": "={{ $json.nombre_medicamento }}"
+            },
+            {
+              "fieldId": "cantidad_solicitados",
+              "fieldValue": "={{ $json.cantidad_solicitados }}"
+            },
+            {
+              "fieldId": "cantidad_entregado",
+              "fieldValue": "={{ $json.cantidad_entregado }}"
+            },
+            {
+              "fieldId": "cantidad_pendiente",
+              "fieldValue": "={{ $json.cantidad_pendiente }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        928
+      ],
+      "id": "3e5a4552-b642-4945-9438-fa6534db5b7b",
+      "name": "Update a row1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Medicamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nombre_medicamento",
+              "condition": "eq",
+              "keyValue": "={{ $json.nombre_medicamento }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock",
+              "fieldValue": "={{ Math.max(0, (parseInt($('Get many rows').item.json.stock) || 0) - (parseInt($json.cantidad_entregado) || 0)) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2336,
+        1440
+      ],
+      "id": "6793d0a6-c70c-4f43-b8b0-073b8c25602f",
+      "name": "Update a row2",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ab5bbdd9-9478-460a-ace8-db7a5b373d43",
+              "leftValue": "={{ $('Code in JavaScript').item.json.estado }}",
+              "rightValue": "pendiente",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "bde2383a-b210-4635-b179-871142c6c3d4",
+              "leftValue": "={{ $('Code in JavaScript').item.json.alerta_stock_agotado }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2128,
+        768
+      ],
+      "id": "f42c826d-81b5-4e15-b353-034d54735995",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Correo }}",
+        "subject": "=Solicitud de Medicamentos ({{ $('Update a row1').item.json.estado }}) - Turno {{ $('Update a row1').item.json.turno }}",
+        "message": "=<p>Hola <b>{{ $json.Nombre }}</b>,</p>\n\n<p>Te confirmamos que tu solicitud de medicamentos ha sido procesada con éxito.</p>\n\n<!-- CUADRO DE TURNO Y TIEMPO -->\n<div style=\"background-color: #f4f6f9; padding: 15px; border-radius: 8px; border-left: 5px solid #007bff; margin: 15px 0;\">\n  <p style=\"margin: 0 0 5px 0; font-size: 15px;\"><b>Turno Asignado:</b> <b style=\"font-size: 18px; color: #007bff;\">{{ $('Update a row1').item.json.turno }}</b></p>\n  <p style=\"margin: 0; color: #333; font-size: 14px;\">⏱️ <b>Plazo de reclamo:</b> Tienes un plazo de <b>72 horas</b> a partir de este momento para acercarte a la taquilla.</p>\n</div>\n\n<!-- MEDICAMENTOS DISPONIBLES (VERDE) -->\n<div style=\"background-color: #e8f5e9; padding: 15px; border-radius: 8px; border-left: 5px solid #2e7d32; margin: 15px 0;\">\n  <h4 style=\"margin: 0 0 10px 0; color: #2e7d32; font-size: 16px;\">✅ Medicamentos LISTOS para reclamar:</h4>\n  <ul style=\"margin: 0; padding-left: 20px; line-height: 1.6;\">\n    {{ $('Code in JavaScript').item.json.aprobados.map(item => '<li><b>' + item.nombre + '</b> — Cantidad autorizada: <b>' + item.cantidad + '</b> unidad(es)</li>').join('') }}\n  </ul>\n</div>\n\n<!-- MEDICAMENTOS PENDIENTES (AMARILLO) - Solo aparece si hay faltantes -->\n{{ $('Code in JavaScript').item.json.sin_stock.length > 0 ? '<div style=\"background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 5px solid #ffc107; margin: 15px 0;\"><h4 style=\"margin: 0 0 10px 0; color: #856404; font-size: 16px;\">⏳ Medicamentos PENDIENTES (En reabastecimiento):</h4><p style=\"margin: 0 0 8px 0; font-size: 13px; color: #856404;\">Estos medicamentos no están disponibles en este momento. Te notificaremos automáticamente por correo apenas lleguen:</p><ul style=\"margin: 0; padding-left: 20px; line-height: 1.6;\">' + $('Code in JavaScript').item.json.sin_stock.map(item => '<li><b>' + item.nombre + '</b> — Cantidad pendiente: <b>' + item.cantidad + '</b> unidad(es)</li>').join('') + '</ul></div>' : '' }}\n\n<!-- INDICACIONES ADICIONALES (NEVERA, ETC) -->\n<div style=\"background-color: #e9ecef; padding: 12px; border-radius: 6px; margin: 15px 0; font-size: 13px; color: #495057;\">\n  <b>ℹ️ Nota del sistema:</b> {{ $('Code in JavaScript').item.json.indicaciones }}\n</div>\n\n<p style=\"margin-top: 20px;\"><b>📋 Pasos para reclamar tu pedido:</b></p>\n<ol style=\"line-height: 1.7; color: #333;\">\n  <li>Acércate a la taquilla de la EPS con tu documento de identidad dentro del <b>plazo de 72 horas</b>.</li>\n  <li>Menciona o muestra tu número de turno: <b>{{ $('Update a row1').item.json.turno }}</b>.</li>\n  <li>El personal de entrega te entregará únicamente los medicamentos señalados en la lista verde de arriba.</li>\n</ol>\n\n<p><i>Gracias por tu paciencia y por utilizar nuestro servicio.</i></p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2128,
+        592
+      ],
+      "id": "8488e64a-d8f0-4f86-8e08-31cd7810548e",
+      "name": "Send a message",
+      "webhookId": "3077490d-44b1-4aec-bf39-a2a3e6ae2acc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1Ytpu1sQ1mRANRNw",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "jdrgdav@gmail.com",
+        "subject": "=🚨 ALERTA: Solicitud con Faltante de Stock - Turno {{ $('Update a row1').item.json.turno }}",
+        "message": "=<p><b>Atención Despacho / Reabastecimiento,</b></p>\n\n<p>Se ha registrado una <b>Alerta de Inventario / Reabastecimiento</b> en el sistema:</p>\n\n<div style=\"background-color: #f8d7da; padding: 15px; border-radius: 8px; border-left: 5px solid #dc3545; margin: 15px 0; color: #721c24;\">\n  <!-- TÍTULO DINÁMICO -->\n  <h4 style=\"margin: 0 0 10px 0; color: #b02a37; font-size: 16px;\">\n    ⚠️ {{ $('Code in JavaScript').item.json.estado !== 'pendiente' ? 'PEDIDO INCOMPLETO POR FALTA DE STOCK' : 'ALERTA: MEDICAMENTO AGOTADO EN INVENTARIO (STOCK 0)' }}\n  </h4>\n\n  <p style=\"margin: 5px 0;\"><b>Paciente:</b> {{ $('Update a row1').item.json.nombre }} (C.I: {{ $('Update a row1').item.json.cedula }})</p>\n  <p style=\"margin: 5px 0;\"><b>Turno Asignado:</b> <b style=\"font-size: 16px; color: #721c24;\">{{ $('Update a row1').item.json.turno }}</b></p>\n  <p style=\"margin: 5px 0;\"><b>Medicamento(s):</b> {{ $('Update a row1').item.json.medicamentos_solicitados }}</p>\n  <p style=\"margin: 5px 0;\"><b>Estado del Pedido:</b> <span style=\"text-transform: uppercase; font-weight: bold; color: #b02a37;\">{{ $('Update a row1').item.json.estado }}</span></p>\n\n  <hr style=\"border: 0; border-top: 1px solid #f5c2c7; margin: 10px 0;\">\n\n  <p style=\"margin: 5px 0;\"><b>Cantidad Solicitada Total:</b> {{ $('Update a row1').item.json.cantidad_solicitados }} unidad(es)</p>\n  <p style=\"margin: 5px 0;\"><b>Cantidad Entregada/Reservada:</b> {{ $('Update a row1').item.json.cantidad_entregado }} unidad(es)</p>\n  <p style=\"margin: 5px 0;\"><b>Cantidad Faltante Paciente:</b> <b style=\"font-size: 15px; color: #dc3545;\">{{ $('Update a row1').item.json.cantidad_pendiente }} unidad(es)</b></p>\n</div>\n\n<p>Por favor, gestionar el reabastecimiento o verificar el inventario en bodega a la brevedad para evitar retrasos en las siguientes atenciones.</p>\n\n<p><i>Mensaje automático del Sistema de Gestión de Inventarios y Pedidos.</i></p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2368,
+        752
+      ],
+      "id": "4f396264-e814-4af1-b8c3-fed8a1ed7052",
+      "name": "Send a message1",
+      "webhookId": "49b5fb1b-65d1-40e5-9052-0f303fab82ee",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1Ytpu1sQ1mRANRNw",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "Pacientes",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Cedula",
+              "keyValue": "={{ $json.cedula }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        592
+      ],
+      "id": "107b5c2f-8a0d-4eea-9314-3e3f1acfee1c",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Create a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row1": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Update a row2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Update a row2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "Update a row2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook4",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "bdec767d-850e-4c83-80f3-cac773dbb345",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fe604dda130d191874c5383220465f43ac708c8696a6c73a448a488f35a6b605"
+  },
+  "nodeGroups": [],
+  "id": "QrcBEyrnp43cE9wJ",
+  "tags": []
+}
