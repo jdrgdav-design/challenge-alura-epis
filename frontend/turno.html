@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Turno de Entrega · SaludExpress</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col justify-center items-center p-4">
+
+  <!-- CONTENEDOR DEL TICKET -->
+  <div class="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden relative flex flex-col">
+    
+    <!-- Encabezado -->
+    <div class="bg-teal-600 px-6 py-5 text-white text-center relative">
+      <div class="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rotate-45 rounded-xs"></div>
+      <p class="text-xs uppercase tracking-widest font-bold text-teal-100">Comprobante de Turno</p>
+      <h1 class="text-xl font-black tracking-tight mt-0.5">SaludExpress EPS</h1>
+    </div>
+
+    <!-- Cuerpo -->
+    <div class="p-6 flex-grow flex flex-col gap-6">
+      
+      <!-- Turno -->
+      <div class="text-center bg-slate-50 border border-slate-100 rounded-2xl py-6 relative flex flex-col items-center justify-center">
+        <p class="text-xs font-bold uppercase text-slate-400 tracking-wider">Tu turno asignado es</p>
+        <p id="ticket-numero" class="text-5xl font-black tracking-tighter text-slate-800 mt-1">...</p>
+        <p id="ticket-fecha" class="text-[11px] text-slate-400 font-medium mt-2">Buscando en la tabla...</p>
+        <p id="ticket-expiracion" class="text-[10px] text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold mt-2 hidden"></p>
+      </div>
+
+      <!-- Datos del Paciente -->
+      <div class="grid grid-cols-2 gap-4 border-b border-dashed border-slate-200 pb-5">
+        <div>
+          <p class="text-[11px] uppercase font-bold text-slate-400 tracking-wide">Paciente</p>
+          <p id="ticket-paciente" class="text-sm font-bold text-slate-700 truncate">Cargando...</p>
+        </div>
+        <div>
+          <p class="text-[11px] uppercase font-bold text-slate-400 tracking-wide">Identificación</p>
+          <p id="ticket-cedula" class="text-sm font-semibold text-slate-600">Cargando...</p>
+        </div>
+      </div>
+
+      <!-- Medicamentos Aprobados -->
+      <div>
+        <p class="text-[11px] uppercase font-bold text-slate-400 tracking-wide mb-3 flex items-center gap-1.5">
+          <i data-lucide="pill" class="w-3.5 h-3.5 text-teal-600"></i>
+          Medicamentos para reclamar en taquilla
+        </p>
+        <ul id="ticket-lista-medicamentos" class="space-y-2"></ul>
+      </div>
+
+      <!-- Medicamentos Sin Stock -->
+      <div id="ticket-seccion-sin-stock" class="hidden border-t border-dashed border-slate-200 pt-5">
+        <p class="text-[11px] uppercase font-bold text-amber-600 mb-3 flex items-center gap-1.5">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-500"></i>
+          No disponibles por falta de stock (Pendientes)
+        </p>
+        <ul id="ticket-lista-sin-stock" class="space-y-2"></ul>
+      </div>
+
+      <!-- Instrucciones -->
+      <div class="bg-sky-50 border border-sky-100 rounded-xl p-4 flex gap-3 items-start">
+        <i data-lucide="info" class="w-5 h-5 text-sky-600 shrink-0 mt-0.5" stroke-width="2.5"></i>
+        <div class="text-xs font-medium text-sky-800 leading-relaxed">
+          <p class="font-bold mb-0.5">Indicaciones de entrega:</p>
+          <p id="ticket-indicaciones">Presenta este ticket digital en las pantallas de la farmacia. Asegúrate de llevar tu documento de identidad original.</p>
+        </div>
+      </div>
+
+      <!-- QR -->
+      <div class="mt-2 flex flex-col items-center gap-2">
+        <div class="p-2 bg-white border border-slate-200 rounded-2xl shadow-xs">
+          <img id="ticket-qr" src="" alt="Código QR" class="w-32 h-32 hidden">
+        </div>
+        <p class="text-[9px] font-mono text-slate-400 tracking-widest uppercase">SALUDEXP-CONEXION-N8N</p>
+      </div>
+
+    </div>
+
+    <!-- Botón Volver -->
+    <div class="p-6 bg-slate-50 border-t border-slate-100">
+      <button onclick="volverAlInicio()" class="w-full py-3.5 bg-white border-2 border-slate-200 rounded-xl font-bold text-sm text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition shadow-xs flex items-center justify-center gap-2">
+        <i data-lucide="home" class="w-4 h-4"></i>
+        Volver a la página de inicio
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    // URL DE TU WEBHOOK DE N8N
+    const N8N_WEBHOOK_URL = "https://kerrie-peaceable-elvina.ngrok-free.dev/webhook/f71d2eed-2340-4b45-8c27-5908aff17c15";
+
+    // Procesador de fechas de respaldo
+    function procesarFechas(fechaInput) {
+      try {
+        if (!fechaInput) return { creadoTexto: "Fecha no disponible", expiraTexto: "72 horas" };
+        let str = String(fechaInput).trim();
+        let fechaCreacion = new Date();
+
+        let matchIso = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s)(\d{2}):(\d{2})/);
+        if (matchIso) {
+          fechaCreacion = new Date(parseInt(matchIso[1]), parseInt(matchIso[2]) - 1, parseInt(matchIso[3]), parseInt(matchIso[4]), parseInt(matchIso[5]), 0);
+        } else {
+          const numeros = str.match(/\d+/g);
+          if (numeros && numeros.length >= 2) {
+            let dia = parseInt(numeros[0], 10);
+            let ano = parseInt(numeros[1], 10);
+            const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+            let mes = new Date().getMonth();
+            for (let i = 0; i < meses.length; i++) { if (str.toLowerCase().includes(meses[i])) { mes = i; break; } }
+            let hora = numeros[2] ? parseInt(numeros[2], 10) : 12;
+            let min = numeros[3] ? parseInt(numeros[3], 10) : 0;
+            if (str.toLowerCase().includes("p.m.") && hora < 12) hora += 12;
+            fechaCreacion = new Date(ano, mes, dia, hora, min, 0);
+          }
+        }
+
+        const opciones = { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+        const fechaExpiracion = new Date(fechaCreacion.getTime() + (72 * 60 * 60 * 1000));
+
+        return {
+          creadoTexto: fechaCreacion.toLocaleString('es-CO', opciones).replace(',', ' a las'),
+          expiraTexto: fechaExpiracion.toLocaleString('es-CO', opciones).replace(',', ' a las')
+        };
+      } catch (e) {
+        return { creadoTexto: fechaInput, expiraTexto: "72 horas" };
+      }
+    }
+
+    // Renderizar los datos de forma limpia y sincronizada
+    function renderizarTicket(ticket) {
+      document.getElementById("ticket-numero").innerText = ticket.turno || ticket.numero_turno || "T-000";
+      document.getElementById("ticket-paciente").innerText = ticket.paciente || ticket.nombre || "Paciente";
+      document.getElementById("ticket-cedula").innerText = ticket.cedula || ticket.identificacion || ticket.documento || "No registrada";
+
+      // Fechas y Expiración
+      document.getElementById("ticket-fecha").innerText = ticket.fecha || ticket.Fecha_creacion || "Fecha no registrada";
+      const compExp = document.getElementById("ticket-expiracion");
+      if (ticket.expiracion) {
+        compExp.innerText = `⏳ Expira: ${ticket.expiracion}`;
+        compExp.classList.remove("hidden");
+      } else {
+        const fechas = procesarFechas(ticket.fecha || ticket.Fecha_creacion || "");
+        compExp.innerText = `⏳ Expira: ${fechas.expiraTexto}`;
+        compExp.classList.remove("hidden");
+      }
+
+      // Indicaciones
+      if (ticket.advertencia || ticket.indicaciones || ticket.mensaje) {
+        document.getElementById("ticket-indicaciones").innerText = ticket.advertencia || ticket.indicaciones || ticket.mensaje;
+      }
+
+      // Código QR
+      const qr = document.getElementById("ticket-qr");
+      const turnoQR = ticket.turno || ticket.numero_turno || "T-000";
+      qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(turnoQR)}`;
+      qr.classList.remove("hidden");
+
+      // 1. Medicamentos Aprobados (Entregados en Taquilla)
+      const listaMed = document.getElementById("ticket-lista-medicamentos");
+      listaMed.innerHTML = "";
+      
+      const aprobados = (ticket.medicamentos || []).filter(m => {
+        const cantEnt = m.cantidad_entregado !== undefined ? m.cantidad_entregado : m.cantidad_entregada;
+        return cantEnt !== undefined ? cantEnt > 0 : true;
+      });
+
+      if (aprobados.length > 0) {
+        aprobados.forEach(med => {
+          const cantidad = med.cantidad_entregado !== undefined ? med.cantidad_entregado : (med.cantidad_entregada || med.cantidad || 1);
+          const nombreMed = med.nombre_medicamento || med.nombre || med;
+          const presentacion = med.presentacion ? `<p class="text-xs text-slate-400 font-normal">${med.presentacion}</p>` : '';
+          
+          listaMed.innerHTML += `
+            <li class="flex items-center justify-between bg-slate-50 border border-slate-200/60 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700">
+              <div class="flex items-center gap-2.5">
+                <span class="h-2 w-2 rounded-full bg-teal-500 shrink-0"></span>
+                <div>
+                  <p class="text-slate-800 leading-tight">${nombreMed}</p>
+                  ${presentacion}
+                </div>
+              </div>
+              <span class="text-xs bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full shrink-0">Cant: ${cantidad}</span>
+            </li>`;
+        });
+      } else {
+        listaMed.innerHTML = `<li class="text-xs text-slate-400 italic py-2 text-center">No hay medicamentos para entrega inmediata.</li>`;
+      }
+
+      // 2. Medicamentos Sin Stock (Pendientes de reabastecimiento)
+      const seccionSinStock = document.getElementById("ticket-seccion-sin-stock");
+      const listaSinStock = document.getElementById("ticket-lista-sin-stock");
+      const listaSinStockData = ticket.sin_stock || [];
+
+      if (listaSinStockData.length > 0) {
+        seccionSinStock.classList.remove("hidden");
+        listaSinStock.innerHTML = "";
+        listaSinStockData.forEach(med => {
+          const cantidad = med.cantidad_pendiente !== undefined ? med.cantidad_pendiente : (med.cantidad_solicitados || med.cantidad || 1);
+          const nombreMed = med.nombre_medicamento || med.nombre || med;
+          const presentacion = med.presentacion ? `<p class="text-xs text-slate-400 font-normal">${med.presentacion}</p>` : '';
+
+          listaSinStock.innerHTML += `
+            <li class="flex items-center justify-between bg-amber-50/40 border border-amber-200/60 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700">
+              <div class="flex items-center gap-2.5">
+                <span class="h-2 w-2 rounded-full bg-amber-400 shrink-0"></span>
+                <div>
+                  <p class="text-slate-700 line-through opacity-75 leading-tight">${nombreMed}</p>
+                  ${presentacion}
+                </div>
+              </div>
+              <span class="text-xs bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full shrink-0">Cant: ${cantidad}</span>
+            </li>`;
+        });
+      } else {
+        seccionSinStock.classList.add("hidden");
+      }
+
+      lucide.createIcons();
+    }
+
+    // Función para adaptar respuestas recibidas como arreglo desde n8n
+    function normalizarDatosN8n(datos) {
+      if (!datos) return null;
+      
+      // Si n8n devuelve un arreglo de varias filas
+      if (Array.isArray(datos)) {
+        if (datos.length === 0) return null;
+        const primero = datos[0];
+        
+        const medicamentosEntregados = [];
+        const medicamentosPendientes = [];
+
+        datos.forEach(row => {
+          const cantEnt = row.cantidad_entregado !== undefined ? row.cantidad_entregado : row.cantidad_entregada;
+          const cantPen = row.cantidad_pendiente !== undefined ? row.cantidad_pendiente : 0;
+
+          if (cantEnt > 0) {
+            medicamentosEntregados.push(row);
+          }
+          if (cantPen > 0 || row.estado === 'esperando_reabastecimiento') {
+            medicamentosPendientes.push(row);
+          }
+        });
+
+        return {
+          turno: primero.turno,
+          paciente: primero.nombre || primero.paciente,
+          cedula: primero.cedula || primero.identificacion,
+          fecha: primero.Fecha_creacion || primero.fecha,
+          medicamentos: medicamentosEntregados.length > 0 ? medicamentosEntregados : (primero.medicamentos || []),
+          sin_stock: medicamentosPendientes.length > 0 ? medicamentosPendientes : (primero.sin_stock || [])
+        };
+      }
+
+      return datos;
+    }
+
+    window.onload = async () => {
+      // 1. Consulta directa por URL (?turno=T-100)
+      const urlParams = new URLSearchParams(window.location.search);
+      const turnoUrl = urlParams.get('turno');
+
+      if (turnoUrl) {
+        try {
+          document.getElementById("ticket-fecha").innerText = "Consultando base de datos...";
+          const respuesta = await fetch(`${N8N_WEBHOOK_URL}?turno=${turnoUrl}`);
+          if (!respuesta.ok) throw new Error("Error al consultar el servidor");
+          
+          const respuestaRaw = await respuesta.json();
+          const datosAdaptados = normalizarDatosN8n(respuestaRaw);
+          
+          if (datosAdaptados) {
+            renderizarTicket(datosAdaptados);
+            return;
+          }
+        } catch (error) {
+          console.error("No se pudo conectar con n8n, buscando memoria local...", error);
+        }
+      }
+
+      // 2. Fallback a LocalStorage
+      const datosLocales = localStorage.getItem("ticket_turno_actual");
+      if (datosLocales) {
+        const datosAdaptados = normalizarDatosN8n(JSON.parse(datosLocales));
+        renderizarTicket(datosAdaptados);
+      } else {
+        alert("No se encontró información del turno activo.");
+        window.location.href = "solicitar_medicamento.html";
+      }
+    };
+
+    function volverAlInicio() { 
+      window.location.href = "inicio.html"; 
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitar Medicamentos · SaludExpress</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Íconos Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Fondo suave */
+    body { background-color: #f8fafc; }
+    
+    /* Personalización del scrollbar */
+    .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="text-slate-900 font-sans relative min-h-screen flex flex-col">
+
+  <!-- ================= TOAST NOTIFICATION (Alerta flotante sin stock) ================= -->
+  <div id="toast-sin-stock" class="hidden fixed top-4 right-4 z-50 transform translate-y-[-20px] opacity-0 transition-all duration-300 bg-amber-50 border border-amber-200 shadow-xl rounded-xl px-4 py-3 flex items-center gap-2.5">
+    <i data-lucide="alert-triangle" class="h-5 w-5 text-amber-600 shrink-0"></i>
+    <p class="text-sm font-bold text-amber-800"><span id="toast-count">1</span> medicamento(s) en espera de reabastecimiento</p>
+  </div>
+
+  <!-- ================= HEADER ================= -->
+  <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-teal-600 text-white shadow-sm">
+        <i data-lucide="heart" class="h-5 w-5" stroke-width="2.5"></i>
+      </div>
+      <div>
+        <p class="text-base font-bold leading-tight text-slate-800">SaludExpress</p>
+        <p class="text-xs text-slate-500 font-medium">EPS · Farmacia sin filas</p>
+      </div>
+    </div>
+    <div class="px-4 py-1.5 bg-teal-100 text-teal-800 text-sm font-bold rounded-full border border-teal-200">
+      <span id="header-nombre-paciente">Paciente</span>
+    </div>
+  </header>
+
+  <!-- ================= CONTENIDO PRINCIPAL CON FASES ================= -->
+  <main class="max-w-6xl mx-auto px-4 py-8 lg:py-10 w-full flex-grow flex flex-col justify-center">
+    
+    <!-- ================= FASE 1: SELECCIÓN DE MEDICAMENTOS ================= -->
+    <div id="phase-select" class="block w-full">
+      
+      <!-- Banner de Alerta por Límite de Turnos -->
+      <div id="alerta-limite-turnos" class="hidden mb-6 p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 flex items-center gap-3 text-amber-900">
+        <i data-lucide="alert-circle" class="w-6 h-6 text-amber-600 shrink-0"></i>
+        <p class="text-sm font-bold">
+          Has alcanzado el límite máximo de 3 turnos activos. Para solicitar nuevos medicamentos debes reclamar o esperar a que finalicen tus solicitudes actuales.
+        </p>
+      </div>
+
+      <div class="flex items-start sm:items-center justify-between mb-8 flex-col sm:flex-row gap-4">
+        <div>
+          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Solicitar medicamentos</h1>
+          <p class="text-slate-500 mt-1 font-medium text-lg">Agrega los que necesitas a tu lista</p>
+        </div>
+        <button onclick="window.location.href='inicio.html'" class="px-6 py-2.5 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition flex items-center gap-2">
+          Volver
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
+        <!-- COLUMNA IZQ: BUSCADOR Y LISTA -->
+        <div class="bg-white rounded-3xl p-6 lg:p-8 shadow-sm border border-slate-200 flex flex-col h-[650px]">
+          <div class="relative mb-6 shrink-0">
+            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"></i>
+            <input type="text" id="buscador" placeholder="Buscar medicamento..." 
+                   class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 transition text-slate-700 font-medium text-lg placeholder:text-slate-400">
+          </div>
+          <div class="flex-1 overflow-y-auto pr-3 space-y-3 custom-scrollbar" id="lista-medicamentos">
+            <!-- Los medicamentos se insertan aquí -->
+          </div>
+        </div>
+
+        <!-- COLUMNA DER: CARRITO -->
+        <div class="bg-white rounded-3xl p-6 lg:p-8 shadow-sm border border-slate-200 h-fit sticky top-28 flex flex-col">
+          <div class="flex items-center gap-4 mb-8">
+            <div class="grid h-12 w-12 rounded-xl bg-sky-100 text-sky-600 place-items-center">
+              <i data-lucide="shopping-cart" class="h-6 w-6"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-bold text-slate-900">Mi lista</h2>
+              <p class="text-sm text-slate-500 font-medium" id="contador-lista">0 medicamentos</p>
+            </div>
+          </div>
+
+          <div id="estado-vacio" class="border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center mb-8 bg-slate-50">
+            <p class="text-slate-500 font-medium text-base">Aún no has agregado medicamentos.</p>
+          </div>
+          
+          <ul id="items-carrito" class="space-y-3 mb-8 hidden flex-1 overflow-y-auto max-h-[300px] custom-scrollbar pr-2">
+            <!-- Items seleccionados -->
+          </ul>
+
+          <button id="btn-confirmar" disabled class="w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 bg-[#8bc4db] text-white/90 cursor-not-allowed shadow-sm mt-auto">
+            Confirmar pedido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= FASE 2: VALIDANDO DISPONIBILIDAD ================= -->
+    <div id="phase-validating" class="hidden w-full flex justify-center py-12">
+      <div class="bg-white border border-slate-200 rounded-3xl p-10 max-w-md w-full text-center shadow-md flex flex-col items-center gap-5">
+        <div class="grid h-20 w-20 place-items-center rounded-full bg-sky-50 text-sky-600">
+          <i data-lucide="loader-2" class="h-10 w-10 animate-spin" stroke-width="2.5"></i>
+        </div>
+        <div>
+          <h2 class="text-2xl font-extrabold text-slate-800 tracking-tight">Validando disponibilidad...</h2>
+          <p class="text-slate-400 font-medium text-sm mt-2">Consultando el inventario de la farmacia en tiempo real. Por favor no cierres esta ventana.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= FASE 3: RESULTADO DEL PEDIDO ================= -->
+    <div id="phase-result" class="hidden w-full max-w-xl mx-auto flex flex-col gap-5 py-4">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 mb-1">Resultado de tu pedido</h1>
+      
+      <!-- Bloque: Medicamentos Sin Stock / Esperando Reabastecimiento (Alerta Ámbar) -->
+      <div id="card-sin-stock" class="hidden border border-amber-200 bg-amber-50/60 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-amber-700">
+            <i data-lucide="bell" class="h-4 w-4" stroke-width="2.5"></i>
+          </div>
+          <p class="text-base font-bold text-slate-800">En lista de reabastecimiento</p>
+        </div>
+        <p class="text-xs text-slate-500 font-medium">Te notificaremos y asignaremos turno automáticamente apenas ingresen existencias:</p>
+        <ul id="lista-sin-stock" class="grid gap-2">
+          <!-- Items sin stock dinámicos -->
+        </ul>
+      </div>
+
+      <!-- Bloque: Turnos Asignados (Tarjeta de Éxito o Lista de Espera) -->
+      <div id="card-turnos-assigned" class="hidden bg-white border border-slate-200 rounded-3xl p-6 text-center shadow-sm flex flex-col gap-6">
+        <div id="icono-estado-resultado" class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+          <i data-lucide="check" class="h-8 w-8" stroke-width="3"></i>
+        </div>
+        <div>
+          <h2 id="texto-titulo-asignado" class="text-2xl font-extrabold text-slate-800 tracking-tight">Tu turno fue asignado</h2>
+          <p id="badge-validez" class="mt-1.5 text-sm text-amber-600 font-bold bg-amber-50 inline-block px-3 py-1 rounded-full border border-amber-250">⚠️ Válido por 72 horas para su retiro</p>
+        </div>
+        
+        <!-- Fichas individuales de turnos -->
+        <div id="contenedor-fichas-turnos" class="grid gap-3">
+          <!-- Bloques de turnos inyectados con JS -->
+        </div>
+
+        <button id="btn-ver-especificaciones" class="w-full h-14 bg-sky-600 text-white font-bold rounded-xl shadow-sm hover:bg-sky-700 transition text-base flex items-center justify-center gap-2 mt-2">
+          Ver mi comprobante oficial
+          <i data-lucide="arrow-right" class="h-5 w-5" stroke-width="2.5"></i>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= CONTROLADOR JAVASCRIPT ================= -->
+  <script>
+    lucide.createIcons();
+
+    // Endpoints Webhooks
+    const WEBHOOK_OBTENER_MEDICAMENTOS = "https://kerrie-peaceable-elvina.ngrok-free.dev/webhook/42918c96-32d2-467a-8d02-045ca65ec77f";
+    const WEBHOOK_GUARDAR_PEDIDO = "https://kerrie-peaceable-elvina.ngrok-free.dev/webhook/f71d2eed-2340-4b45-8c27-5908aff17c15";
+
+    let medicamentos = []; 
+    let carrito = [];
+    let usuarioActual = null;
+    let limiteTurnosAlcanzado = false;
+
+    window.onload = () => {
+      const usuarioGuardado = JSON.parse(localStorage.getItem("usuario"));
+      if (usuarioGuardado) {
+        usuarioActual = usuarioGuardado;
+        document.getElementById('header-nombre-paciente').innerText = usuarioActual.nombre || usuarioActual.nombre_completo || "Paciente";
+      }
+
+      // Validar si ya superó el máximo de 3 turnos activos
+      const turnosActivos = JSON.parse(localStorage.getItem("tickets_activos") || "[]");
+      if (turnosActivos.length >= 3) {
+        limiteTurnosAlcanzado = true;
+        const alerta = document.getElementById("alerta-limite-turnos");
+        if (alerta) alerta.classList.remove("hidden");
+      }
+
+      cargarMedicamentosDesdeN8N();
+    };
+
+    // Obtención del inventario desde la base de datos externa vía n8n
+    async function cargarMedicamentosDesdeN8N() {
+      const contenedor = document.getElementById('lista-medicamentos');
+      contenedor.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-12 text-slate-400 flex-grow h-full justify-center">
+          <i data-lucide="loader-2" class="w-8 h-8 animate-spin mb-3"></i>
+          <p class="font-medium text-lg">Cargando inventario de la EPS...</p>
+        </div>`;
+      lucide.createIcons();
+
+      try {
+        const respuesta = await fetch(WEBHOOK_OBTENER_MEDICAMENTOS, {
+          method: 'GET',
+          headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
+        
+        if(respuesta.ok) {
+          const datosBD = await respuesta.json();
+          const listaReal = datosBD.medicamentos || datosBD;
+          
+          medicamentos = listaReal.map(item => {
+            return {
+              id: item.codigo || item.id || "sin-id",
+              nombre: item.nombre_medicamento || item.nombre || "Medicamento sin nombre",
+              presentacion: item.presentacion || item.tipo || "Presentación disponible",
+              tags: item.tags || []
+            };
+          });
+
+          renderizarCatalogo();
+        } else {
+          throw new Error("La base de datos respondió con un estado incorrecto.");
+        }
+      } catch (error) {
+        console.error("Error detectado en la conexión:", error);
+        
+        contenedor.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-12 text-rose-500 text-center px-4 flex-grow h-full justify-center">
+            <i data-lucide="alert-circle" class="w-12 h-12 mb-3 text-rose-500"></i>
+            <p class="font-bold text-lg text-slate-800">Error de conexión al inventario</p>
+            <p class="text-sm text-slate-400 mt-1 max-w-sm">No pudimos conectar con la tabla de medicamentos de la EPS. Revisa tu webhook o el estado del servidor.</p>
+            <button onclick="cargarMedicamentosDesdeN8N()" class="mt-5 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition flex items-center gap-2 shadow-2xs">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i> Intentar de nuevo
+            </button>
+          </div>`;
+        lucide.createIcons();
+      }
+    }
+
+    // Dibujar catálogo filtrable
+    function renderizarCatalogo(filtro = "") {
+      const contenedor = document.getElementById('lista-medicamentos');
+      contenedor.innerHTML = "";
+
+      const filtrados = medicamentos.filter(m => m.nombre.toLowerCase().includes(filtro.toLowerCase()));
+
+      if(filtrados.length === 0) {
+        contenedor.innerHTML = `<p class="text-center text-slate-500 py-8">No se encontraron medicamentos.</p>`;
+        return;
+      }
+
+      filtrados.forEach(med => {
+        let tagsHtml = '';
+        if(med.tags && med.tags.length > 0) {
+          const tagsDivs = med.tags.map(tag => `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${tag.colorClases || 'bg-slate-100 text-slate-600'}">
+              <i data-lucide="${tag.icon || 'info'}" class="w-3.5 h-3.5"></i> ${tag.text}
+            </span>
+           `).join('');
+          tagsHtml = `<div class="flex gap-2 mt-2">${tagsDivs}</div>`;
+        }
+
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-4 rounded-2xl border-2 border-slate-100 bg-white hover:border-sky-200 transition-colors group";
+        div.innerHTML = `
+          <div>
+            <p class="font-bold text-slate-800 text-lg leading-tight">${med.nombre}</p>
+            <p class="text-xs text-slate-400 font-medium mt-0.5">${med.presentacion}</p>
+            ${tagsHtml}
+          </div>
+          <button onclick="agregarAlCarrito('${med.id}')" ${limiteTurnosAlcanzado ? 'disabled' : ''} class="shrink-0 flex items-center gap-1.5 px-4 py-2 ${limiteTurnosAlcanzado ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-100 text-slate-600 hover:bg-sky-100 hover:text-sky-700'} font-bold text-sm rounded-full transition">
+            <i data-lucide="plus" class="w-4 h-4"></i> Agregar
+          </button>
+        `;
+        contenedor.appendChild(div);
+      });
+      lucide.createIcons(); 
+    }
+
+    // Control del Carrito
+    function agregarAlCarrito(id) {
+      if (limiteTurnosAlcanzado) return;
+      const med = medicamentos.find(m => String(m.id) === String(id));
+      if(med) {
+        const itemExistente = carrito.find(item => String(item.id) === String(id));
+        if (itemExistente) {
+          itemExistente.cantidad += 1;
+        } else {
+          carrito.push({ ...med, cantidad: 1 });
+        }
+        actualizarCarrito();
+      }
+    }
+
+    function alterarCantidad(id, delta) {
+      const item = carrito.find(m => String(m.id) === String(id));
+      if (item) {
+        item.cantidad += delta;
+        if (item.cantidad <= 0) {
+          eliminarDelCarrito(id);
+        } else {
+          actualizarCarrito();
+        }
+      }
+    }
+
+    function eliminarDelCarrito(id) {
+      carrito = carrito.filter(item => String(item.id) !== String(id));
+      actualizarCarrito();
+    }
+
+    function actualizarCarrito() {
+      const contenedor = document.getElementById('items-carrito');
+      const vacio = document.getElementById('estado-vacio');
+      const contador = document.getElementById('contador-lista');
+      const btnConfirmar = document.getElementById('btn-confirmar');
+
+      const totalUnidades = carrito.reduce((acc, item) => acc + item.cantidad, 0);
+      contador.innerText = `${totalUnidades} unidad(es) en lista`;
+
+      if (carrito.length === 0 || limiteTurnosAlcanzado) {
+        if (carrito.length === 0) vacio.classList.remove('hidden');
+        contenedor.classList.add('hidden');
+        btnConfirmar.disabled = true;
+        btnConfirmar.className = "w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 bg-[#8bc4db] text-white/90 cursor-not-allowed shadow-sm mt-auto";
+      } else {
+        vacio.classList.add('hidden');
+        contenedor.classList.remove('hidden');
+        btnConfirmar.disabled = false;
+        btnConfirmar.className = "w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 bg-sky-500 text-white hover:bg-sky-600 hover:shadow-md cursor-pointer mt-auto";
+        
+        contenedor.innerHTML = "";
+        carrito.forEach(item => {
+          const li = document.createElement('li');
+          li.className = "flex flex-col gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50";
+          li.innerHTML = `
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="font-bold text-slate-700 text-sm block leading-tight">${item.nombre}</span>
+                <span class="text-xs text-slate-400 block mt-0.5">${item.presentacion}</span>
+              </div>
+              <button onclick="eliminarDelCarrito('${item.id}')" class="text-slate-400 hover:text-red-500 transition p-1 shrink-0">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+            <div class="flex items-center justify-end gap-2 border-t border-slate-200/60 pt-2">
+              <button onclick="alterarCantidad('${item.id}', -1)" class="w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs hover:bg-slate-100 transition shadow-2xs">-</button>
+              <span class="text-xs font-bold text-slate-700 w-6 text-center">${item.cantidad}</span>
+              <button onclick="alterarCantidad('${item.id}', 1)" class="w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs hover:bg-slate-100 transition shadow-2xs">+</button>
+            </div>
+          `;
+          contenedor.appendChild(li);
+        });
+        lucide.createIcons();
+      }
+    }
+
+    document.getElementById('buscador').addEventListener('input', (e) => {
+      renderizarCatalogo(e.target.value);
+    });
+
+    // ===================================================================
+    // LÓGICA DE CONFIRMACIÓN MULTI-TURNO Y SIN STOCK UNIFICADA
+    // ===================================================================
+    document.getElementById('btn-confirmar').addEventListener('click', async () => {
+      if(carrito.length === 0 || limiteTurnosAlcanzado) return;
+
+      const phaseSelect = document.getElementById("phase-select");
+      const phaseValidating = document.getElementById("phase-validating");
+      const phaseResult = document.getElementById("phase-result");
+
+      phaseSelect.classList.add("hidden");
+      phaseValidating.classList.remove("hidden");
+
+      // Simulación visual de escaneo
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      try {
+        const payload = {
+          nombre: usuarioActual ? (usuarioActual.nombre || usuarioActual.nombre_completo || "Paciente") : "Paciente",
+          cedula: usuarioActual ? usuarioActual.cedula : "Desconocido",
+          medicamentos_solicitados: carrito.map(item => ({ 
+            nombre: item.nombre,
+            cantidad: item.cantidad,
+            presentacion: item.presentacion
+          }))
+        };
+
+        const peticion = await fetch(WEBHOOK_GUARDAR_PEDIDO, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if(!peticion.ok) {
+          throw new Error("El servidor de la farmacia no guardó el registro correctamente.");
+        }
+
+        const respuestaN8N = await peticion.json();
+        
+        let datosRespuesta = respuestaN8N;
+        if (Array.isArray(respuestaN8N) && respuestaN8N.length > 0) {
+          datosRespuesta = respuestaN8N[0];
+        }
+
+        let aprobados = datosRespuesta.aprobados || [];
+        let sinStock = datosRespuesta.sin_stock || [];
+
+        // Normalización si n8n responde en formato simple (un solo objeto)
+        const estadoRespuesta = String(datosRespuesta.estado || "").toLowerCase();
+        
+        if (aprobados.length === 0 && sinStock.length === 0) {
+          if (estadoRespuesta === 'sin_stock' || estadoRespuesta === 'esperando_reabastecimiento' || datosRespuesta.success === false) {
+            sinStock = carrito.map(item => ({
+              nombre: item.nombre,
+              presentacion: item.presentacion,
+              cantidad: item.cantidad
+            }));
+          } else {
+            aprobados = carrito.map(item => ({
+              nombre: item.nombre,
+              presentacion: item.presentacion,
+              cantidad: item.cantidad
+            }));
+          }
+        }
+
+        let turnoFinalMostrar = null;
+        let advertenciaNevera = datosRespuesta.advertencia || datosRespuesta.mensaje || datosRespuesta.indicaciones || "";
+        let turnoDesdeDB = datosRespuesta.turno || datosRespuesta.turno_asignado || datosRespuesta.numero_turno;
+        let idReal = datosRespuesta.id || datosRespuesta.codigo;
+
+        if (turnoDesdeDB) {
+          if (String(turnoDesdeDB).includes('{{') || String(turnoDesdeDB).includes('$node')) {
+            if (idReal && !isNaN(idReal)) {
+              let sumaMatch = String(turnoDesdeDB).match(/\+\s*(\d+)/);
+              let constanteSuma = sumaMatch ? parseInt(sumaMatch[1]) : 99;
+              turnoFinalMostrar = `T-${parseInt(idReal) + constanteSuma}`;
+            } else {
+              turnoFinalMostrar = "T-101";
+            }
+          } else {
+            turnoFinalMostrar = turnoDesdeDB;
+          }
+        } else if (idReal && !isNaN(idReal)) {
+          turnoFinalMostrar = `T-${parseInt(idReal) + 99}`;
+        } else {
+          turnoFinalMostrar = aprobados.length > 0 ? "T-100" : "SIN TURNO";
+        }
+
+        // ===================================================================
+        // ESTRUCTURACIÓN DE DATOS PARA COMPROBANTE Y LOCALSTORAGE
+        // ===================================================================
+        const fechaActual = new Date();
+        const opcionesFormato = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        const stringFechaEmision = fechaActual.toLocaleDateString('es-CO', opcionesFormato);
+
+        const tieneEntregasParciales = sinStock.length > 0 && aprobados.length > 0;
+        let estadoCalculado = 'esperando_reabastecimiento';
+        if (aprobados.length > 0 && sinStock.length === 0) estadoCalculado = 'pendiente';
+        if (tieneEntregasParciales) estadoCalculado = 'pendiente_parcial';
+
+        const medicamentosEstructurados = [];
+
+        aprobados.forEach(item => {
+          medicamentosEstructurados.push({
+            nombre: item.nombre || item.nombre_medicamento,
+            presentacion: item.presentacion,
+            cantidad_solicitada: item.cantidad,
+            cantidad_entregada: item.cantidad,
+            cantidad_pendiente: 0
+          });
+        });
+
+        sinStock.forEach(item => {
+          medicamentosEstructurados.push({
+            nombre: item.nombre || item.nombre_medicamento,
+            presentacion: item.presentacion,
+            cantidad_solicitada: item.cantidad,
+            cantidad_entregada: 0,
+            cantidad_pendiente: item.cantidad
+          });
+        });
+
+        const totalSolicitado = medicamentosEstructurados.reduce((acc, m) => acc + m.cantidad_solicitada, 0);
+        const totalEntregado = medicamentosEstructurados.reduce((acc, m) => acc + m.cantidad_entregada, 0);
+        const totalPendiente = medicamentosEstructurados.reduce((acc, m) => acc + m.cantidad_pendiente, 0);
+
+        let fechaExpiracionStr = null;
+        if (aprobados.length > 0) {
+          const fechaExpiracion = new Date(fechaActual.getTime() + (72 * 60 * 60 * 1000));
+          fechaExpiracionStr = fechaExpiracion.toLocaleDateString('es-CO', opcionesFormato);
+        }
+
+        let datosFichaTurno = {
+          turno: turnoFinalMostrar.toUpperCase(),
+          paciente: usuarioActual ? (usuarioActual.nombre || usuarioActual.nombre_completo || "Paciente") : "Paciente",
+          cedula: usuarioActual ? usuarioActual.cedula : "No registrada",
+          estado: estadoCalculado,
+          cantidad_solicitada: totalSolicitado,
+          cantidad_entregada: totalEntregado,
+          cantidad_pendiente: totalPendiente,
+          medicamentos: medicamentosEstructurados,
+          fecha: stringFechaEmision,
+          expiracion: fechaExpiracionStr,
+          horasLimite: "72 horas",
+          advertencia: advertenciaNevera,
+          mensaje: advertenciaNevera,
+          indicaciones: advertenciaNevera,
+          sin_stock: sinStock.map(item => ({ nombre: item.nombre || item.nombre_medicamento, cantidad: item.cantidad, presentacion: item.presentacion }))
+        };
+
+        if (aprobados.length > 0 || sinStock.length > 0) {
+          let historialTurnos = JSON.parse(localStorage.getItem("tickets_activos") || "[]");
+          historialTurnos.push(datosFichaTurno);
+          localStorage.setItem("tickets_activos", JSON.stringify(historialTurnos));
+        }
+
+        localStorage.setItem("ticket_turno_actual", JSON.stringify(datosFichaTurno));
+
+        // ===================================================================
+        // RENDERIZADO VISUAL FASE 3
+        // ===================================================================
+        
+        // 1. Mostrar Alerta de Medicamentos Sin Stock / Reabastecimiento
+        if (sinStock.length > 0) {
+          const listaUL = document.getElementById("lista-sin-stock");
+          listaUL.innerHTML = "";
+          sinStock.forEach(med => {
+            const nombreMed = med.nombre || med.nombre_medicamento;
+            listaUL.innerHTML += `
+              <li class="flex items-center justify-between rounded-xl bg-white p-3.5 text-sm font-bold text-slate-700 border border-slate-150 shadow-2xs">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full bg-amber-500 shrink-0"></span>
+                  <div>
+                    <span class="block">${nombreMed}</span>
+                    <span class="text-xs text-slate-400 block font-normal">${med.presentacion || ''}</span>
+                  </div>
+                </div>
+                <span class="text-xs font-bold bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-slate-500">Cant: ${med.cantidad}</span>
+              </li>`;
+          });
+          document.getElementById("card-sin-stock").classList.remove("hidden");
+
+          const toast = document.getElementById("toast-sin-stock");
+          document.getElementById("toast-count").innerText = sinStock.length;
+          toast.classList.remove("hidden");
+          setTimeout(() => { toast.classList.remove("translate-y-[-20px]", "opacity-0"); }, 50);
+          setTimeout(() => {
+            toast.classList.add("translate-y-[-20px]", "opacity-0");
+            setTimeout(() => toast.classList.add("hidden"), 300);
+          }, 5000);
+        } else {
+          document.getElementById("card-sin-stock").classList.add("hidden");
+        }
+
+        // 2. Mostrar Tarjeta de Turno / Estado
+        const contenedorFichas = document.getElementById("contenedor-fichas-turnos");
+        const iconoEstado = document.getElementById("icono-estado-resultado");
+        contenedorFichas.innerHTML = "";
+
+        if (aprobados.length > 0) {
+          iconoEstado.className = "mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600";
+          iconoEstado.innerHTML = `<i data-lucide="check" class="h-8 w-8" stroke-width="3"></i>`;
+          
+          let listaMedicamentosHtml = "";
+          aprobados.forEach(med => {
+            const nombreMed = med.nombre || med.nombre_medicamento;
+            listaMedicamentosHtml += `
+              <div class="flex items-center justify-between bg-white border border-slate-200/60 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600">
+                <div class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <div class="text-left">
+                    <p class="text-slate-800 font-bold leading-tight">${nombreMed}</p>
+                    <p class="text-xs text-slate-400 font-normal">${med.presentacion || ''}</p>
+                  </div>
+                </div>
+                <span class="text-xs font-bold bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-slate-600">Cant: ${med.cantidad}</span>
+              </div>`;
+          });
+
+          document.getElementById("texto-titulo-asignado").innerText = "Tu turno fue asignado";
+          
+          if (advertenciaNevera) {
+            document.getElementById("badge-validez").innerText = advertenciaNevera;
+            document.getElementById("badge-validez").className = "mt-2.5 text-sm text-amber-900 font-bold bg-amber-50 block text-left p-4 rounded-2xl border-2 border-amber-250 whitespace-pre-line shadow-xs";
+          } else {
+            document.getElementById("badge-validez").innerText = "⚠️ Válido por 72 horas para su retiro";
+            document.getElementById("badge-validez").className = "mt-1.5 text-sm text-amber-600 font-bold bg-amber-50 inline-block px-3 py-1 rounded-full border border-amber-250";
+          }
+
+          contenedorFichas.innerHTML = `
+            <div class="rounded-2xl bg-slate-50 border border-slate-150 p-5 text-left shadow-2xs flex flex-col gap-4">
+              <div>
+                <div class="flex items-center justify-between">
+                  <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Turno Único de Entrega</p>
+                  <p class="text-[10px] font-bold text-amber-700 uppercase bg-amber-100/70 px-2 py-0.5 rounded">Expira en 72h</p>
+                </div>
+                <p class="text-3xl font-black tracking-tight text-slate-800">${turnoFinalMostrar.toUpperCase()}</p>
+              </div>
+              <div class="border-t border-slate-200/80 pt-3.5">
+                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Medicamentos listos en taquilla:</p>
+                <div class="grid gap-1.5">
+                  ${listaMedicamentosHtml}
+                </div>
+              </div>
+            </div>`;
+
+        } else {
+          // Caso en que NINGÚN medicamento tuvo stock (100% en reabastecimiento)
+          iconoEstado.className = "mx-auto grid h-16 w-16 place-items-center rounded-full bg-amber-50 text-amber-600";
+          iconoEstado.innerHTML = `<i data-lucide="clock" class="h-8 w-8" stroke-width="2.5"></i>`;
+
+          document.getElementById("texto-titulo-asignado").innerText = "Solicitud Registrada en Espera";
+          document.getElementById("badge-validez").className = "mt-1.5 text-sm text-blue-700 font-bold bg-blue-50 inline-block px-4 py-1.5 rounded-full border border-blue-200";
+          document.getElementById("badge-validez").innerText = "⏳ Lista de Reabastecimiento Automático";
+          
+          contenedorFichas.innerHTML = `
+            <div class="rounded-2xl bg-slate-50 border border-slate-150 p-5 text-center shadow-2xs flex flex-col gap-2">
+              <p class="text-sm font-bold text-slate-700">Sin disponibilidad en taquilla inmediata</p>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                Tu pedido ha quedado guardado como <strong>esperando_reabastecimiento</strong>. Tan pronto lleguen existencias al inventario, el sistema asignará tu turno de entrega de forma prioritaria.
+              </p>
+            </div>`;
+        }
+
+        document.getElementById("card-turnos-assigned").classList.remove("hidden");
+
+        document.getElementById("btn-ver-especificaciones").onclick = () => {
+          window.location.href = "turno.html";
+        };
+
+        phaseValidating.classList.add("hidden");
+        phaseResult.classList.remove("hidden");
+        lucide.createIcons();
+
+        carrito = [];
+        actualizarCarrito();
+
+      } catch (error) {
+        console.error("Proceso interrumpido:", error);
+        phaseValidating.classList.add("hidden");
+        phaseSelect.classList.remove("hidden"); 
+        alert(`⚠️ Proceso Abortado.\nNo se pudo procesar la solicitud correctamente.\nDetalle: ${error.message}`);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Farmacia · SaludExpress</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen relative">
+
+  <!-- NAVBAR SUPERIOR -->
+  <nav class="bg-teal-700 text-white shadow-xs px-6 py-4 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <i data-lucide="shield-alert" class="w-6 h-6 text-teal-200"></i>
+      <h1 class="text-xl font-black tracking-tight">SaludExpress <span class="font-normal text-teal-200 text-sm">| Módulo Despacho</span></h1>
+    </div>
+    <div class="flex items-center gap-2 bg-teal-800 px-4 py-2 rounded-xl text-xs font-bold border border-teal-600">
+      <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      CONECTADO A N8N
+    </div>
+  </nav>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- COLUMNA IZQUIERDA -->
+    <div class="lg:col-span-2 flex flex-col gap-6">
+      
+      <!-- TÍTULO DEL PANEL -->
+      <div>
+        <h2 class="text-3xl font-extrabold text-slate-800">Panel de Farmacia</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Gestión de turnos y entregas del día</p>
+      </div>
+
+      <!-- BUSCAR TURNO -->
+      <div class="bg-white border border-slate-200 p-6 rounded-2xl shadow-xs">
+        <h3 class="text-sm font-bold text-slate-700 mb-1">Buscar turno</h3>
+        <p class="text-xs text-slate-400 mb-4">Digita el número del paciente, turno o escanea su código QR.</p>
+        
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="relative flex-grow">
+            <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-3 top-3.5"></i>
+            <input type="text" id="input-busqueda" placeholder="Ej: T-108 o Cédula..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-sm focus:outline-hidden focus:border-teal-500 transition">
+          </div>
+          <button onclick="buscarTurno()" class="bg-sky-600 hover:bg-sky-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xs transition whitespace-nowrap">
+            Buscar
+          </button>
+          <button onclick="limpiarBusqueda()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-3 rounded-xl font-bold text-sm transition whitespace-nowrap">
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- LISTA DE TURNOS PENDIENTES -->
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 class="text-sm font-bold text-slate-700">Turnos pendientes</h3>
+            <p id="contador-hoy" class="text-xs text-slate-400 mt-0.5">Sincronizando cola de espera...</p>
+          </div>
+          <button onclick="cargarTodoElPanel()" class="flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Actualizar Cola
+          </button>
+        </div>
+
+        <div id="lista-turnos" class="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+          <div class="text-center py-12 text-slate-400 font-medium text-sm">
+            Sincronizando cola de espera...
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COLUMNA DERECHA -->
+    <div class="flex flex-col gap-6">
+      
+      <!-- MEDICAMENTOS EN CAMINO -->
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-xs p-5">
+        <div class="flex items-start gap-2.5 mb-1">
+          <i data-lucide="truck" class="w-5 h-5 text-teal-600 mt-0.5"></i>
+          <div>
+            <h3 class="text-sm font-bold text-slate-700">Medicamentos en camino</h3>
+            <p class="text-[11px] text-slate-400">Gestión automática · solo lectura</p>
+          </div>
+        </div>
+
+        <div class="mt-4 border-t border-slate-100">
+          <div class="flex justify-between text-[10px] font-bold text-slate-400 tracking-wider py-2 uppercase">
+            <span>Medicamento</span>
+            <span>Estado de Orden</span>
+          </div>
+
+          <div id="lista-abastecimiento" class="flex flex-col gap-3 mt-1">
+            <div class="text-center py-6 text-xs text-slate-500 font-semibold bg-slate-50 rounded-xl mt-2 border border-slate-200/60 flex flex-col items-center gap-1">
+              <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>
+              <span>Todos los medicamentos cuentan con inventario</span>
+            </div>
+          </div>
+        </div>
+        
+        <p class="text-[10px] text-slate-400 text-center mt-4 bg-slate-50 py-2 rounded-xl border border-slate-100 font-medium">
+          Reposición solicitada automáticamente al proveedor.
+        </p>
+      </div>
+
+      <!-- RESUMEN DEL DÍA -->
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-xs p-5">
+        <h3 class="text-sm font-bold text-slate-700 mb-4">Resumen del día</h3>
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-blue-50/70 border border-blue-100 p-3 rounded-xl">
+            <p id="metrica-pendientes" class="text-2xl font-black text-blue-700">0</p>
+            <p class="text-[10px] font-bold text-blue-600/80 uppercase tracking-wide mt-0.5">Pendientes</p>
+          </div>
+          <div class="bg-teal-50/70 border border-teal-100 p-3 rounded-xl">
+            <p id="metrica-nevera" class="text-2xl font-black text-teal-700">0</p>
+            <p class="text-[10px] font-bold text-teal-600/80 uppercase tracking-wide mt-0.5">Con Nevera</p>
+          </div>
+          <div class="bg-amber-50/70 border border-amber-100 p-3 rounded-xl">
+            <p id="metrica-especial" class="text-2xl font-black text-amber-700">0</p>
+            <p class="text-[10px] font-bold text-amber-600/80 uppercase tracking-wide mt-0.5">F. Especial</p>
+          </div>
+          <div class="bg-rose-50/70 border border-rose-100 p-3 rounded-xl">
+            <p id="metrica-stock" class="text-2xl font-black text-rose-700">0</p>
+            <p class="text-[10px] font-bold text-rose-600/80 uppercase tracking-wide mt-0.5">Sin Stock</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- PANTALLA DE DETALLE (MODAL) -->
+  <div id="modal-detalle" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+    <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden p-6 md:p-8">
+      
+      <!-- Barra superior interna -->
+      <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-6">
+        <div class="flex items-center gap-2 text-teal-700">
+          <i data-lucide="heart" class="w-5 h-5 fill-teal-600 text-teal-600"></i>
+          <span class="text-xs font-bold tracking-wide uppercase text-slate-500">SaludExpress <span class="font-normal text-[11px]">| EPS · Farmacia sin filas</span></span>
+        </div>
+        <button onclick="cerrarDetalle()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-1.5 rounded-xl font-bold text-xs transition">
+          Volver
+        </button>
+      </div>
+
+      <!-- Título Dinámico del Turno y Estado del Pedido -->
+      <div class="mb-6 flex justify-between items-start flex-wrap gap-2">
+        <div>
+          <h2 id="det-turno-titulo" class="text-3xl font-black text-slate-800 tracking-tight">TURNO-XXXX</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Verifica los datos antes de entregar</p>
+        </div>
+        <div id="det-badge-estado" class="mt-1"></div>
+      </div>
+
+      <!-- Grid de Contenido -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Bloques de Información -->
+        <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          
+          <!-- Tarjeta Paciente -->
+          <div class="bg-slate-50 border border-slate-200/60 p-4 rounded-xl">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
+              <i data-lucide="user" class="w-3 h-3"></i> Paciente
+            </span>
+            <p id="det-nombre" class="font-extrabold text-slate-800 text-sm">Cargando...</p>
+          </div>
+
+          <!-- Tarjeta Cédula -->
+          <div class="bg-slate-50 border border-slate-200/60 p-4 rounded-xl">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
+              <i data-lucide="credit-card" class="w-3 h-3"></i> Cédula
+            </span>
+            <p id="det-cedula" class="font-extrabold text-slate-800 text-sm">Cargando...</p>
+          </div>
+
+          <!-- Tarjeta Medicamento y Cantidades -->
+          <div class="bg-slate-50 border border-slate-200/60 p-4 rounded-xl sm:col-span-2">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
+              <i data-lucide="pill" class="w-3 h-3"></i> Medicamento(s) y Cantidad
+            </span>
+            <div id="det-medicamentos" class="font-bold text-slate-800 text-sm leading-relaxed">Cargando...</div>
+          </div>
+
+          <!-- Tarjeta Tiempo Restante -->
+          <div class="bg-slate-50 border border-slate-200/60 p-4 rounded-xl sm:col-span-2 flex justify-between items-center">
+            <div>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 flex items-center gap-1">
+                <i data-lucide="clock" class="w-3 h-3"></i> Tiempo Restante
+              </span>
+              <p id="det-tiempo" class="font-extrabold text-slate-800 text-sm">Calculando...</p>
+            </div>
+            <div id="det-badges" class="flex gap-2 flex-wrap justify-end"></div>
+          </div>
+
+        </div>
+
+        <!-- Tarjeta de Acción -->
+        <div class="bg-white border border-slate-200 p-5 rounded-2xl flex flex-col justify-between shadow-xs">
+          <div>
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Acción</span>
+            <p class="text-xs text-slate-600 font-medium leading-relaxed">
+              Confirma que el medicamento fue entregado físicamente al paciente.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-2 mt-6">
+            <button id="det-btn-confirmar" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
+              <i data-lucide="check-circle" class="w-4 h-4"></i> Marcar como Entregado
+            </button>
+            <button onclick="cerrarDetalle()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 rounded-xl font-bold text-xs transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 🤖 BOTÓN FLOTANTE: CHAT DE TELEGRAM CON EPIS -->
+  <a href="https://t.me/Farmacia_analisis_bot" 
+     target="_blank" 
+     rel="noopener noreferrer" 
+     class="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-sky-500 hover:bg-sky-600 text-white px-5 py-3.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1 font-bold text-xs tracking-wide">
+    <i data-lucide="bot" class="w-5 h-5"></i>
+    <span>Consultar a EPIS</span>
+  </a>
+
+  <!-- SCRIPTS Y LÓGICA DE NEGOCIO -->
+  <script>
+    const URL_GET_PENDIENTES = "https://kerrie-peaceable-elvina.ngrok-free.dev/webhook/pedidos";
+    const URL_POST_ENTREGAR = "https://kerrie-peaceable-elvina.ngrok-free.dev/webhook/dee1d380-d273-4ec8-8ec7-3739ae3feedd";
+    const URL_GET_INVENTARIO = "https://kerrie-peaceable-elvina.ngrok-free.dev/webhook/42918c96-32d2-467a-8d02-045ca65ec77f";
+
+    let basePedidosMemoria = []; 
+    let idPedidoModalAbierto = null; 
+
+    window.onload = function() {
+      lucide.createIcons();
+      cargarTodoElPanel();
+      
+      document.getElementById("input-busqueda").addEventListener("keyup", function(event) {
+        if (event.key === "Enter") buscarTurno();
+      });
+
+      setInterval(actualizarTiemposDinamicos, 10000);
+    };
+
+    function cargarTodoElPanel() {
+      cargarPendientes();
+      cargarInventarioCritico();
+    }
+
+    // FORMATEAR MEDICAMENTOS Y CANTIDADES
+    function formatearMedicamentosCompleto(pedido) {
+      let meds = pedido.medicamentos_solicitados || pedido.medicamentos || pedido.meds || pedido.items || pedido.medicamento;
+      if (!meds) return "Sin medicamentos registrados";
+
+      if (typeof meds === 'string') {
+        try {
+          const parsed = JSON.parse(meds);
+          meds = parsed;
+        } catch (e) {
+          // Mantener texto original si no es JSON
+        }
+      }
+
+      let cantGlobalRaw = pedido.cantidad_entregado ?? pedido.cantidad_entregada ?? 
+                          pedido.cantidades_entregadas ?? pedido.cantidades_entregados ?? 
+                          pedido.cant_entregada ?? pedido.cant_entregado ?? 
+                          pedido.cantidades ?? pedido.cantidad ?? pedido.cantidad_solicitada ?? 
+                          pedido.cantidad_prescrita ?? pedido.unidades ?? pedido.cant ?? 
+                          pedido.qty ?? pedido.unidades_solicitadas;
+      
+      let cantidadesGlobales = null;
+      if (cantGlobalRaw !== undefined && cantGlobalRaw !== null && cantGlobalRaw !== '') {
+        if (typeof cantGlobalRaw === 'string' && cantGlobalRaw.includes(',')) {
+          cantidadesGlobales = cantGlobalRaw.split(',').map(c => c.trim());
+        } else if (Array.isArray(cantGlobalRaw)) {
+          cantidadesGlobales = cantGlobalRaw;
+        } else {
+          cantidadesGlobales = [cantGlobalRaw];
+        }
+      }
+
+      const generarBadgeCantidad = (cant) => {
+        let val = (cant !== null && cant !== undefined && cant !== '') ? cant : 1;
+        return `<span class="inline-block bg-teal-50 text-teal-800 border border-teal-200 text-[11px] font-black px-2 py-0.5 rounded-md ml-1.5">x${val} unds</span>`;
+      };
+
+      if (Array.isArray(meds)) {
+        return meds.map((m, index) => {
+          if (typeof m === 'object' && m !== null) {
+            const nombre = m.nombre || m.nombre_medicamento || m.nombre_medicamiento || m.medicamento || m.med || m.producto || '';
+            let cant = m.cantidad_entregado ?? m.cantidad_entregada ?? m.cant_entregada ?? m.cant_entregado ?? 
+                        m.cantidad ?? m.cant ?? m.cantidad_solicitada ?? m.unidades ?? m.qty ?? m.cantidad_prescrita;
+            if (cant === undefined || cant === null || cant === '') {
+              cant = (cantidadesGlobales && cantidadesGlobales[index] !== undefined) ? cantidadesGlobales[index] : (cantidadesGlobales ? cantidadesGlobales[0] : 1);
+            }
+            return `<span class="inline-flex items-center my-0.5">${nombre}${generarBadgeCantidad(cant)}</span>`;
+          } else {
+            const nombreStr = String(m).trim();
+            let cant = (cantidadesGlobales && cantidadesGlobales[index] !== undefined) ? cantidadesGlobales[index] : (cantidadesGlobales ? cantidadesGlobales[0] : 1);
+            return `<span class="inline-flex items-center my-0.5">${nombreStr}${generarBadgeCantidad(cant)}</span>`;
+          }
+        }).filter(Boolean).join('<span class="text-slate-300 mx-2">|</span>');
+      }
+
+      if (typeof meds === 'string') {
+        const listaNombres = meds.split(',').map(s => s.trim());
+        return listaNombres.map((nombre, i) => {
+          let cant = (cantidadesGlobales && cantidadesGlobales[i] !== undefined) ? cantidadesGlobales[i] : (cantidadesGlobales ? cantidadesGlobales[0] : 1);
+          return `<span class="inline-flex items-center my-0.5">${nombre}${generarBadgeCantidad(cant)}</span>`;
+        }).join('<span class="text-slate-300 mx-2">|</span>');
+      }
+
+      return String(meds) + generarBadgeCantidad(cantidadesGlobales ? cantidadesGlobales[0] : 1);
+    }
+
+    // EVALUAR SI UN PEDIDO ES PARCIAL O PENDIENTE_PARCIAL
+    function evaluarEsParcial(pedido) {
+      if (!pedido) return false;
+
+      const estadoTexto = String(
+        pedido.estado_entrega || pedido.estado || pedido.tipo_pedido || pedido.tipo_entrega || pedido.tipo || ""
+      ).toLowerCase();
+
+      if (estadoTexto.includes("pendiente_parcial") || estadoTexto.includes("parcial") || estadoTexto.includes("incompleto")) {
+        return true;
+      }
+
+      if (pedido.es_parcial === true || pedido.es_parcial === "1" || pedido.parcial === true || pedido.parcial === "1") {
+        return true;
+      }
+
+      let meds = pedido.medicamentos_solicitados || pedido.medicamentos || pedido.items;
+      if (typeof meds === 'string') {
+        try { meds = JSON.parse(meds); } catch(e){}
+      }
+
+      if (Array.isArray(meds)) {
+        for (let item of meds) {
+          if (typeof item === 'object' && item !== null) {
+            if (item.parcial === true || item.es_parcial === true || String(item.estado || "").toLowerCase().includes("parcial")) {
+              return true;
+            }
+            let cantEntregada = item.cantidad_entregado ?? item.cantidad_entregada;
+            let cantSolicitada = item.cantidad_solicitada ?? item.cantidad;
+            if (cantEntregada !== undefined && cantSolicitada !== undefined) {
+              if (Number(cantEntregada) < Number(cantSolicitada)) return true;
+            }
+          }
+        }
+      }
+
+      return false;
+    }
+
+    // 1. OBTENER TURNOS
+    async function cargarPendientes() {
+      const contenedor = document.getElementById("lista-turnos");
+      try {
+        const respuesta = await fetch(URL_GET_PENDIENTES, {
+          headers: { "ngrok-skip-browser-warning": "true" }
+        });
+        if (!respuesta.ok) throw new Error(`Error: ${respuesta.status}`);
+        const datos = await respuesta.json();
+        
+        let lista = Array.isArray(datos) ? datos : (datos.pedidos || datos.data || []);
+        
+        basePedidosMemoria = lista.map(item => item.json ? item.json : item);
+
+        renderizarListaPedidos(basePedidosMemoria);
+      } catch (error) {
+        console.error(error);
+        contenedor.innerHTML = `
+          <div class="text-center py-8 text-rose-500 font-bold text-xs p-4">
+            ⚠️ Error al conectar con lista de turnos<br>
+            <span class="text-slate-400 font-normal text-[11px]">${error.message}</span>
+          </div>
+        `;
+      }
+    }
+
+    // CÁLCULO DE TIEMPOS DINÁMICOS
+    function calcularTiempoRestante(pedido) {
+      const HORAS_LIMITE = 72; 
+
+      let fechaBase = pedido.Fecha_creacion || pedido.fecha_creacion || pedido.created_at || pedido.fecha || pedido.timestamp;
+      let horaBase = pedido.hora || pedido.time || pedido.hora_creacion || "";
+
+      if (!fechaBase) return { texto: "Tiempo no disponible", clase: "text-slate-500 bg-slate-100" };
+
+      try {
+        let fechaCreacion;
+
+        if (fechaBase instanceof Date) {
+          fechaCreacion = fechaBase;
+        } else if (!isNaN(fechaBase) && String(fechaBase).length > 5) {
+          fechaCreacion = new Date(Number(fechaBase));
+        } else {
+          let combinada = String(fechaBase).trim() + " " + String(horaBase).trim();
+          let numeros = combinada.match(/\d+/g);
+
+          if (numeros && numeros.length >= 3) {
+            let ano = parseInt(numeros[0], 10);
+            let mes = parseInt(numeros[1], 10) - 1; 
+            let dia = parseInt(numeros[2], 10);
+            let hora = numeros[3] ? parseInt(numeros[3], 10) : 0;
+            let min = numeros[4] ? parseInt(numeros[4], 10) : 0;
+            let seg = numeros[5] ? parseInt(numeros[5], 10) : 0;
+            
+            fechaCreacion = new Date(ano, mes, dia, hora, min, seg);
+          } else {
+            fechaCreacion = new Date(String(fechaBase));
+          }
+        }
+
+        if (isNaN(fechaCreacion.getTime())) return { texto: "Fecha inválida", clase: "text-slate-500 bg-slate-100" };
+
+        const ahora = new Date();
+        const limiteSLA = new Date(fechaCreacion.getTime() + (HORAS_LIMITE * 60 * 60 * 1000)); 
+        const difMs = limiteSLA - ahora;
+
+        if (difMs <= 0) {
+          const horasVencido = Math.floor(Math.abs(difMs) / (1000 * 60 * 60));
+          return { 
+            texto: `Vencido hace ${horasVencido}h (Prioritario)`, 
+            clase: "text-rose-700 bg-rose-50 border border-rose-100 font-black animate-pulse" 
+          };
+        }
+
+        const horasRestantes = Math.floor(difMs / (1000 * 60 * 60));
+        const minutosRestantes = Math.floor((difMs % (1000 * 60 * 60)) / (1000 * 60));
+
+        if (horasRestantes < 12) {
+          return { 
+            texto: `${horasRestantes}h ${minutosRestantes}m restantes`, 
+            clase: "text-amber-700 bg-amber-50 border border-amber-200 animate-pulse" 
+          };
+        } else {
+          return { 
+            texto: `${horasRestantes}h ${minutosRestantes}m restantes`, 
+            clase: "text-emerald-700 bg-emerald-50 border border-emerald-100" 
+          };
+        }
+      } catch (error) {
+        return { texto: "Error de formato", clase: "text-slate-500 bg-slate-100" };
+      }
+    }
+
+    function actualizarTiemposDinamicos() {
+      basePedidosMemoria.forEach(pedido => {
+        const contenedoresTimer = document.querySelectorAll(`[data-timer-id="${pedido.id}"]`);
+        const infoTiempo = calcularTiempoRestante(pedido);
+        contenedoresTimer.forEach(el => {
+          el.innerText = infoTiempo.texto;
+          el.className = `text-[10px] font-bold px-2 py-0.5 rounded-md ${infoTiempo.clase}`;
+        });
+      });
+
+      if (idPedidoModalAbierto !== null) {
+        const pedidoActivo = basePedidosMemoria.find(item => item.id == idPedidoModalAbierto);
+        if (pedidoActivo) {
+          const infoTiempoModal = calcularTiempoRestante(pedidoActivo);
+          const elModal = document.getElementById("det-tiempo");
+          if (elModal) {
+            elModal.innerText = infoTiempoModal.texto;
+          }
+        }
+      }
+    }
+
+    // 2. RENDERIZAR LA LISTA
+    function renderizarListaPedidos(lista) {
+      const contenedor = document.getElementById("lista-turnos");
+      contenedor.innerHTML = "";
+
+      document.getElementById("contador-hoy").innerText = `${lista.length} por entregar hoy`;
+      document.getElementById("metrica-pendientes").innerText = lista.length;
+      
+      let conteoNevera = 0;
+      let conteoEspecial = 0;
+
+      if (lista.length === 0) {
+        contenedor.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm font-medium">No hay turnos pendientes.</div>`;
+        document.getElementById("metrica-nevera").innerText = 0;
+        document.getElementById("metrica-especial").innerText = 0;
+        return;
+      }
+
+      lista.forEach(pedido => {
+        const turnoFinal = pedido.turno || "T-" + (parseInt(pedido.id) + 99);
+        const htmlMeds = formatearMedicamentosCompleto(pedido);
+        
+        const nombreFinal = pedido.nombre_paciente || pedido.nombre || pedido.paciente || 'Paciente Registrado';
+        const cedulaFinal = pedido.cedula_paciente || pedido.cedula || pedido.documento || pedido.cc || 'N/A';
+
+        const textoSinTags = htmlMeds.replace(/<[^>]*>?/gm, '');
+        const requiereNevera = pedido.requiere_nevera === true || 
+                               pedido.requiere_nevera === "Sí" || 
+                               textoSinTags.toLowerCase().includes("insulina") || 
+                               textoSinTags.toLowerCase().includes("enoxaparina") ||
+                               textoSinTags.toLowerCase().includes("vacuna");
+
+        const esControlado = pedido.es_especial === true || 
+                             pedido.es_especial === "Sí" || 
+                             textoSinTags.toLowerCase().includes("diazepam") || 
+                             textoSinTags.toLowerCase().includes("clonazepam");
+
+        const esParcial = evaluarEsParcial(pedido);
+
+        if (requiereNevera) conteoNevera++;
+        if (esControlado) conteoEspecial++;
+
+        const infoTiempo = calcularTiempoRestante(pedido);
+
+        // BADGE / LUCESITA SEGÚN ESTADO (AMARILLA SI ES PENDIENTE_PARCIAL, VERDE SI ES NORMAL)
+        const badgeEstadoHtml = esParcial
+          ? `<span class="bg-amber-50 text-amber-800 border border-amber-300 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span> Pendiente Parcial</span>`
+          : `<span class="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span> Entrega Normal</span>`;
+
+        contenedor.innerHTML += `
+          <div class="p-4 hover:bg-slate-50/80 transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div class="flex-grow">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-extrabold text-slate-800 text-sm tracking-tight">${turnoFinal}</span>
+                <span data-timer-id="${pedido.id}" class="text-[10px] font-bold px-2 py-0.5 rounded-md ${infoTiempo.clase}">
+                  ${infoTiempo.texto}
+                </span>
+                ${badgeEstadoHtml}
+                ${requiereNevera ? '<span class="text-sky-600 text-[11px] font-bold bg-sky-50 px-2 py-0.5 rounded-md flex items-center gap-1">❄️ Nevera</span>' : ''}
+                ${esControlado ? '<span class="bg-rose-100 text-rose-800 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Controlado</span>' : ''}
+              </div>
+              <p class="text-xs text-slate-600 mt-1.5 font-medium flex items-center flex-wrap gap-1">
+                <span class="font-bold text-slate-700">${nombreFinal}</span> · ${htmlMeds}
+              </p>
+              <p class="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
+                <i data-lucide="user" class="w-3 h-3 text-slate-300"></i> CC: ${cedulaFinal}
+              </p>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button onclick="verDetalle('${pedido.id}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition">Ver</button>
+              <button onclick="marcarComoEntregado('${pedido.id}', this)" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition">Entregar</button>
+            </div>
+          </div>
+        `;
+      });
+
+      document.getElementById("metrica-nevera").innerText = conteoNevera;
+      document.getElementById("metrica-especial").innerText = conteoEspecial;
+      lucide.createIcons();
+    }
+
+    // 3. VER DETALLE (MODAL)
+    function verDetalle(id) {
+      const pedido = basePedidosMemoria.find(item => item.id == id);
+      if (!pedido) return;
+
+      idPedidoModalAbierto = id; 
+
+      const turnoFinal = pedido.turno || "TURNO-" + (parseInt(pedido.id) + 99);
+      const htmlMeds = formatearMedicamentosCompleto(pedido);
+      
+      const nombreFinal = pedido.nombre_paciente || pedido.nombre || pedido.paciente || 'Paciente Registrado';
+      const cedulaFinal = pedido.cedula_paciente || pedido.cedula || pedido.documento || pedido.cc || 'N/A';
+
+      document.getElementById("det-turno-titulo").innerText = turnoFinal.toUpperCase();
+      document.getElementById("det-nombre").innerText = nombreFinal;
+      document.getElementById("det-cedula").innerText = cedulaFinal;
+      document.getElementById("det-medicamentos").innerHTML = htmlMeds;
+      
+      const esParcial = evaluarEsParcial(pedido);
+      const badgeEstado = document.getElementById("det-badge-estado");
+
+      if (esParcial) {
+        badgeEstado.innerHTML = `<span class="bg-amber-50 text-amber-800 text-xs font-extrabold px-3 py-1 rounded-full border border-amber-300 inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span> Pendiente Parcial</span>`;
+      } else {
+        badgeEstado.innerHTML = `<span class="bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-300 inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span> Entrega Normal</span>`;
+      }
+
+      const infoTiempo = calcularTiempoRestante(pedido);
+      document.getElementById("det-tiempo").innerText = infoTiempo.texto;
+
+      const contenedorBadges = document.getElementById("det-badges");
+      contenedorBadges.innerHTML = "";
+      
+      const textoSinTags = htmlMeds.replace(/<[^>]*>?/gm, '');
+      const requiereNevera = pedido.requiere_nevera === true || pedido.requiere_nevera === "Sí" || textoSinTags.toLowerCase().includes("insulina") || textoSinTags.toLowerCase().includes("enoxaparina") || textoSinTags.toLowerCase().includes("vacuna");
+      const esControlado = pedido.es_especial === true || pedido.es_especial === "Sí" || textoSinTags.toLowerCase().includes("diazepam") || textoSinTags.toLowerCase().includes("clonazepam");
+
+      if (requiereNevera) {
+        contenedorBadges.innerHTML += `<span class="text-sky-600 text-[10px] font-bold bg-sky-50 border border-sky-100 px-2 py-1 rounded-md">❄️ Requiere nevera</span>`;
+      }
+      if (esControlado) {
+        contenedorBadges.innerHTML += `<span class="text-amber-700 text-[10px] font-bold bg-amber-50 border border-amber-100 px-2 py-1 rounded-md">⚠️ Controlado</span>`;
+      }
+
+      const btnConfirmar = document.getElementById("det-btn-confirmar");
+      btnConfirmar.onclick = async function() {
+        cerrarDetalle();
+        await marcarComoEntregado(pedido.id, btnConfirmar);
+      };
+
+      document.getElementById("modal-detalle").classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function cerrarDetalle() {
+      idPedidoModalAbierto = null; 
+      document.getElementById("modal-detalle").classList.add("hidden");
+    }
+
+    // 4. OBTENER INVENTARIO REAL
+    async function cargarInventarioCritico() {
+      const listaAbastecimiento = document.getElementById("lista-abastecimiento");
+      try {
+        const respuesta = await fetch(URL_GET_INVENTARIO, {
+          headers: { "ngrok-skip-browser-warning": "true" }
+        });
+        if (!respuesta.ok) throw new Error("Offline");
+        
+        const respuestaJson = await respuesta.json();
+
+        let medicamentos = [];
+        if (Array.isArray(respuestaJson)) {
+          medicamentos = respuestaJson;
+        } else if (respuestaJson.medicamentos && Array.isArray(respuestaJson.medicamentos)) {
+          medicamentos = respuestaJson.medicamentos;
+        } else if (respuestaJson.data && Array.isArray(respuestaJson.data)) {
+          medicamentos = respuestaJson.data;
+        }
+
+        if (!medicamentos || medicamentos.length === 0) return;
+
+        const obtenerStock = (m) => {
+          const item = m.json ? m.json : m;
+          const val = item.stock ?? item.cantidad ?? item.stock_actual ?? item.Stock ?? item.cant ?? item.inventario;
+          return (val !== undefined && val !== null) ? parseInt(val) : 999;
+        };
+
+        const criticos = medicamentos.filter(m => obtenerStock(m) <= 3);
+        const totalSinStock = medicamentos.filter(m => obtenerStock(m) === 0).length;
+        
+        document.getElementById("metrica-stock").innerText = totalSinStock;
+
+        if (criticos.length === 0) {
+          listaAbastecimiento.innerHTML = `
+            <div class="text-center py-6 text-xs text-emerald-600 font-semibold bg-emerald-50 rounded-xl mt-2 border border-emerald-100 flex flex-col items-center gap-1">
+              <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>
+              <span>Todos los medicamentos cuentan con inventario</span>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+
+        listaAbastecimiento.innerHTML = "";
+        criticos.forEach(m => {
+          const item = m.json ? m.json : m;
+          const stockActual = obtenerStock(m);
+          const esCero = stockActual === 0;
+          const nombreMed = item.nombre_medicamento || item.nombre_medicamiento || item.nombre || item.medicamento || 'Medicamento';
+          
+          listaAbastecimiento.innerHTML += `
+            <div class="flex justify-between items-center py-2.5 border-b border-slate-100 last:border-0">
+              <div>
+                <p class="text-xs font-bold text-slate-800">${nombreMed}</p>
+                <p class="text-[10px] ${esCero ? 'text-rose-500 font-bold':'text-amber-500 font-semibold'}">
+                  ${esCero ? '⚠️ Sin stock (0 unds)' : 'Bajo stock (' + stockActual + ' unds)'}
+                </p>
+              </div>
+              <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-1 rounded-md flex items-center gap-1">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> NOTIFICADO AUTÓNOMO
+              </span>
+            </div>
+          `;
+        });
+        lucide.createIcons();
+      } catch (error) {
+        listaAbastecimiento.innerHTML = `
+          <div class="text-center py-6 text-xs text-slate-500 font-semibold bg-slate-50 rounded-xl mt-2 border border-slate-200/60 flex flex-col items-center gap-1">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>
+            <span>Todos los medicamentos cuentan con inventario</span>
+          </div>
+        `;
+        document.getElementById("metrica-stock").innerText = "0"; 
+        lucide.createIcons();
+      }
+    }
+
+    // 5. FILTRAR BÚSQUEDA
+    function buscarTurno() {
+      const termino = document.getElementById("input-busqueda").value.toLowerCase().trim();
+      if (!termino) {
+        renderizarListaPedidos(basePedidosMemoria);
+        return;
+      }
+      const filtrados = basePedidosMemoria.filter(p => {
+        const nombre = p.nombre_paciente || p.nombre || p.paciente || '';
+        const cedula = p.cedula_paciente || p.cedula || p.documento || p.cc || '';
+        return (p.turno || "").toLowerCase().includes(termino) || 
+               nombre.toLowerCase().includes(termino) || 
+               cedula.toString().includes(termino);
+      });
+      renderizarListaPedidos(filtrados);
+    }
+
+    // 6. LIMPIAR BÚSQUEDA
+    function limpiarBusqueda() {
+      document.getElementById("input-busqueda").value = "";
+      renderizarListaPedidos(basePedidosMemoria);
+    }
+
+    // 7. ENVIAR DESPACHO A N8N
+    async function marcarComoEntregado(idPedido, boton) {
+      if (!confirm("¿Confirmar la entrega física de este pedido?")) return;
+      if (boton) boton.disabled = true;
+      try {
+        const respuesta = await fetch(URL_POST_ENTREGAR, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+          body: JSON.stringify({ id: idPedido })
+        });
+        if (respuesta.ok) {
+          cargarTodoElPanel();
+        } else { 
+          alert("Error al procesar la entrega en n8n."); 
+          if (boton) boton.disabled = false; 
+        }
+      } catch (error) { 
+        alert("Error de conexión con el servidor."); 
+        if (boton) boton.disabled = false; 
+      }
+    }
+  </script>
+</body>
+</html>
