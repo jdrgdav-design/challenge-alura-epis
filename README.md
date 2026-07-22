@@ -28,7 +28,10 @@ Los usuarios/pacientes reciben correos electrónicos automáticos informándoles
  **Disponibilidad de Recojo:** Confirmación de que su pedido ya está listo en la sede.
  **Requisitos y Documentación:** Indicaciones claras sobre qué llevar (cédula, fórmula física, autorización, etc.).
  **Avisos de Reabastecimiento:** Notificación inmediata a su correo cuando llega el lote de un medicamento que estaba agotado.
+ 
+##  Demostración en Video
 
+[![Ver Video en Google Drive](https://img.shields.google.com/badge/▶️_Ver_Demostración_en_Video-Google_Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1NyIWfptjL_9Pgqoe2cydE6xH7rekCGRt/view?usp=sharing)
 ---
 
 ##  Arquitectura y Flujo de Comunicación
