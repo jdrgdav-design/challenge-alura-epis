@@ -1,0 +1,259 @@
+{
+  "name": "entregar-pedido",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dee1d380-d273-4ec8-8ec7-3739ae3feedd",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f9975a74-aa32-47b7-b236-1fddd1d28e7f",
+      "name": "Webhook",
+      "webhookId": "dee1d380-d273-4ec8-8ec7-3739ae3feedd"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Pedidos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "estado",
+              "fieldValue": "entregado"
+            },
+            {
+              "fieldId": "Fecha_entrega",
+              "fieldValue": "={{ $now.setZone('America/Bogota').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -16
+      ],
+      "id": "310138f6-9547-468b-a0fb-3aeca2948501",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        832,
+        -16
+      ],
+      "id": "135fbbbe-9264-4cb7-803a-ab7979cebd11",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "Pedidos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.body.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "3e30df30-c9bb-4060-9eb7-0fe8749dc712",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "382711e8-e6b3-42c8-bdbe-6a68e1c2ba22",
+              "leftValue": "={{ $json.estado }}",
+              "rightValue": "pendiente",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "b5d2b852-d287-442b-84c9-f4e404136484",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Pedidos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "estado",
+              "fieldValue": "esperando_reabastecimiento"
+            },
+            {
+              "fieldId": "Fecha_entrega",
+              "fieldValue": "={{ $now.setZone('America/Bogota').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        624,
+        192
+      ],
+      "id": "e9b47705-162e-4cb5-b851-e6cb7788fc80",
+      "name": "Update a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "82721ae1-0aed-4ad1-bc8d-fc8277f99473",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fe604dda130d191874c5383220465f43ac708c8696a6c73a448a488f35a6b605"
+  },
+  "nodeGroups": [],
+  "id": "mVopStumCCY3vWc1",
+  "tags": []
+}

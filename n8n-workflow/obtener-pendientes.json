@@ -1,0 +1,110 @@
+{
+  "name": "obtener-pendientes",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "pedidos",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "81290b4e-3c9e-4964-b6dd-98abac510d4e",
+      "name": "Webhook",
+      "webhookId": "f8c36516-75b0-409b-85e0-d2514f7c4ce7"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Pedidos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "estado",
+              "condition": "eq",
+              "keyValue": "pendiente"
+            },
+            {
+              "keyName": "estado",
+              "condition": "eq",
+              "keyValue": "pendiente_parcial"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a1e1cf5a-0df4-4bc9-a0e1-f236253d30d2",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        416,
+        0
+      ],
+      "id": "e67ccaaa-9f59-4532-ac49-e79cdcc1ea32",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "eb336624-a684-4e10-8e9f-26c5f1231b17",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fe604dda130d191874c5383220465f43ac708c8696a6c73a448a488f35a6b605"
+  },
+  "nodeGroups": [],
+  "id": "XqEwu4lNXRojjEEe",
+  "tags": []
+}

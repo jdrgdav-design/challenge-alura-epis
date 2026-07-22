@@ -1,0 +1,598 @@
+{
+  "name": "Actualizacion_de_stock_para_pedidos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4f9a4260-e325-440d-9976-7e1975c04d1a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Pedidos",
+        "orderBy": "created_at.asc",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "estado",
+              "condition": "eq",
+              "keyValue": "esperando_reabastecimiento"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "dc117c27-8409-430e-afea-a73829f3fe27",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "Medicamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nombre_medicamento",
+              "keyValue": "={{ $json.nombre_medicamento }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "cc7428ce-7f1f-4689-bfba-01ff0295f06d",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ec44f8fb-9fa3-44bc-a9d6-fc6780171257",
+              "leftValue": "={{ $json.cantidad_entregado_calculada }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1008,
+        0
+      ],
+      "id": "4a05e55e-36de-4b61-9b40-cce6f60348b7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Pedidos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id_pedido }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "estado",
+              "fieldValue": "={{ $json.cantidad_pendiente_calculada == 0 ? 'pendiente' : 'pendiente_parcial' }}"
+            },
+            {
+              "fieldId": "Fecha_creacion",
+              "fieldValue": "={{ $now.setZone('America/Bogota').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+            },
+            {
+              "fieldId": "turno",
+              "fieldValue": "={{ $json.turno }}"
+            },
+            {
+              "fieldId": "medicamentos_solicitados",
+              "fieldValue": "={{ $json.nombre_medicamento }}"
+            },
+            {
+              "fieldId": "cantidad_solicitados",
+              "fieldValue": "={{ $json.cantidad_solicitados }}"
+            },
+            {
+              "fieldId": "cantidad_entregado",
+              "fieldValue": "={{ $json.cantidad_entregado_calculada }}"
+            },
+            {
+              "fieldId": "cantidad_pendiente",
+              "fieldValue": "={{ $json.cantidad_pendiente_calculada }}"
+            },
+            {
+              "fieldId": "Fecha_entrega",
+              "fieldValue": "={{ null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        -144
+      ],
+      "id": "5fabdbea-e505-4bce-b059-a43eeb440dba",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 0. Resetear la memoria temporal en cada ejecución manual para no congelar datos viejos\nconst staticData = $getWorkflowStaticData('global');\ndelete staticData.stockRestante; \nstaticData.stockRestante = {};\n\nconst resultados = [];\n\n// 1. Obtener datos del Medicamento (Get a row) y del Pedido (Code in JavaScript1)\nconst medicamentosInput = $input.all(); \nconst pedidosInput = $('Code in JavaScript1').all(); \n\nfor (let i = 0; i < medicamentosInput.length; i++) {\n  const medData = medicamentosInput[i].json;\n  const pedidoData = pedidosInput[i]?.json || {};\n\n  // Separar y preservar los IDs explícitos de cada tabla\n  const idPedido = pedidoData.id;\n  const idMedicamento = medData.id;\n\n  // Unir ambos datos en un solo objeto\n  const itemCombinado = { ...pedidoData, ...medData };\n\n  const nombreMed = itemCombinado.nombre_medicamento || 'Sin Nombre';\n  const stockEnBD = parseInt(itemCombinado.stock) || 0;\n\n  if (staticData.stockRestante[nombreMed] === undefined) {\n    staticData.stockRestante[nombreMed] = stockEnBD;\n  }\n\n  let stockDisponible = staticData.stockRestante[nombreMed];\n\n  // 2. Determinar la cantidad real requerida (priorizar cantidad_pendiente si existe)\n  let rawCantidad = itemCombinado.cantidad_pendiente !== undefined && itemCombinado.cantidad_pendiente !== null && Number(itemCombinado.cantidad_pendiente) > 0\n    ? itemCombinado.cantidad_pendiente \n    : itemCombinado.cantidad_solicitados;\n\n  let cantidadNecesaria = 0;\n  if (typeof rawCantidad === 'string' && String(rawCantidad).includes(',')) {\n    cantidadNecesaria = String(rawCantidad).split(',').reduce((acc, val) => acc + (parseInt(val.trim()) || 0), 0);\n  } else {\n    cantidadNecesaria = parseInt(rawCantidad) || 0;\n  }\n\n  // 3. Cálculo de entrega (Total o Parcial)\n  let cantidadAEntregar = 0;\n  let cantidadPendienteNueva = 0;\n\n  if (stockDisponible >= cantidadNecesaria) {\n    cantidadAEntregar = cantidadNecesaria;\n    cantidadPendienteNueva = 0;\n    stockDisponible -= cantidadNecesaria;\n  } else if (stockDisponible > 0) {\n    cantidadAEntregar = stockDisponible;\n    cantidadPendienteNueva = cantidadNecesaria - stockDisponible;\n    stockDisponible = 0;\n  } else {\n    cantidadAEntregar = 0;\n    cantidadPendienteNueva = cantidadNecesaria;\n  }\n\n  // 4. Guardar stock restante actualizado en la memoria\n  staticData.stockRestante[nombreMed] = stockDisponible;\n\n  resultados.push({\n    json: {\n      ...itemCombinado,\n      id: idMedicamento,                      // ID de la tabla Medicamentos\n      id_medicamento: idMedicamento,          // Copia directa\n      id_pedido: idPedido,                    // ID de la tabla Pedidos\n      cantidad_entregado_calculada: cantidadAEntregar,\n      cantidad_pendiente_calculada: cantidadPendienteNueva,\n      nuevo_stock_medicamento: stockDisponible\n    }\n  });\n}\n\nreturn resultados;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "c2c6a0ea-5540-4204-8e3a-a11ec83da1ca",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const resultados = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  \n  // Separar los textos por comas\n  const medicamentos = (row.medicamentos_solicitados || '').split(',');\n  const solicitados = String(row.cantidad_solicitados || '').split(',');\n  const pendientes = String(row.cantidad_pendiente || '').split(',');\n\n  // Crear un ítem individual por cada medicamento encontrado\n  medicamentos.forEach((med, index) => {\n    const nombreLimpio = med.trim();\n    if (nombreLimpio) {\n      resultados.push({\n        json: {\n          ...row,\n          nombre_medicamento: nombreLimpio,\n          cantidad_solicitados: parseInt(solicitados[index]) || 1,\n          cantidad_pendiente: parseInt(pendientes[index]) || 1\n        }\n      });\n    }\n  });\n}\n\nreturn resultados;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "24c9b813-e74a-4a44-a008-d35fb8755aac",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Medicamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock",
+              "fieldValue": "={{ $json.nuevo_stock_medicamento }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        32
+      ],
+      "id": "3ceae66c-dae9-464d-adc9-7d6b96d110ba",
+      "name": "Update a row1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a4e61e11-2878-4ce0-abc0-f18383862c66",
+              "leftValue": "={{ $json.cantidad_pendiente.toNumber() }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1536,
+        -144
+      ],
+      "id": "79076ecf-3bef-4ef8-b8fa-1e368a85bb1c",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Correo }}",
+        "subject": "=¡Tu pedido {{ $('If1').item.json.medicamentos_solicitados }} está listo! - Turno {{ $('If1').item.json.turno }}",
+        "message": "=<p>Hola <b>{{ $json.Nombre }}</b>,</p>  <p>¡Buenas noticias! Te confirmamos que <b>tu pedido está 100% completo</b> y listo para ser entregado en la farmacia.</p>  <div style=\"background-color: #f4f6f9; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745; margin: 15px 0;\">   <p style=\"margin: 5px 0;\"><b>Medicamento:</b> {{ $('If1').item.json.nombre_medicamento }}</p>   <p style=\"margin: 5px 0;\"><b>Cantidad total a reclamar:</b> {{ $('If1').item.json.cantidad_entregado_calculada }} unidad(es)</p>   <p style=\"margin: 5px 0;\"><b>Estado del pedido:</b> <span style=\"color: #28a745; font-weight: bold;\">COMPLETO</span></p>   <p style=\"margin: 5px 0;\"><b>Tu Turno:</b> <b style=\"font-size: 16px; color: #007bff;\">{{ $('If1').item.json.turno }}</b></p> </div>  <p>Ya puedes consultar tu tiquete digital actualizado en la página web y dirigirte a la taquilla correspondiente para reclamar tus medicamentos.</p>  <p><i>Gracias por tu paciencia mientras reabastecíamos tu medicamento.</i></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        -240
+      ],
+      "id": "954e812b-ce50-4580-b606-d661ab7a2a32",
+      "name": "Send a message",
+      "webhookId": "64231dc4-f0a0-455a-949f-340674afeba7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1Ytpu1sQ1mRANRNw",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "Pacientes",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Cedula",
+              "keyValue": "={{ $json.cedula }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        -240
+      ],
+      "id": "6d66d0d7-ccf1-46ee-869d-8d5065fa1b6e",
+      "name": "Get a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "Pacientes",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Cedula",
+              "keyValue": "={{ $json.cedula }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        -32
+      ],
+      "id": "e07d0b88-1563-4a96-9d2d-7eb8c87155aa",
+      "name": "Get a row2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YYzjbzIIJRj3XWU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Correo }}",
+        "subject": "=Disponibilidad Parcial - {{ $('If1').item.json.medicamentos_solicitados }} (Turno: {{ $('If1').item.json.turno }})",
+        "message": "=<p>Hola <b>{{ $json.Nombre }}</b>,</p>  <p>Te informamos que ya tenemos <b>disponibilidad parcial</b> para tu solicitud de medicamento.</p>  <div style=\"background-color: #fff8e6; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 15px 0;\">   <p style=\"margin: 5px 0;\"><b>Medicamento:</b> {{ $('If1').item.json.nombre_medicamento }}</p>   <p style=\"margin: 5px 0;\"><b>Unidades a reclamar hoy:</b> <span style=\"color: #28a745; font-weight: bold;\">{{ $('If1').item.json.cantidad_entregado_calculada }}</span></p>   <p style=\"margin: 5px 0;\"><b>Unidades pendientes:</b> <span style=\"color: #dc3545; font-weight: bold;\">{{ $('If1').item.json.cantidad_pendiente_calculada }}</span></p>   <p style=\"margin: 5px 0;\"><b>Estado del pedido:</b> <span style=\"color: #e67e22; font-weight: bold;\">ENTREGA PARCIAL</span></p>   <p style=\"margin: 5px 0;\"><b>Tu Turno:</b> <b style=\"font-size: 16px; color: #007bff;\">{{ $('If1').item.json.turno }}</b></p> </div>  <p>Puedes acercarte a la taquilla para reclamar las unidades disponibles hoy. Te enviaremos otra notificación en cuanto se reabastezcan las unidades restantes.</p>  <p><i>Gracias por tu comprensión.</i></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        -32
+      ],
+      "id": "299831a0-aacf-4e61-8cc3-5fb6b9c5671a",
+      "name": "Send a message1",
+      "webhookId": "8ed1a4e3-81a1-4847-b306-9454451e0818",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1Ytpu1sQ1mRANRNw",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "87ff1bf1-9cc0-4338-8cfa-4ecd3f461008",
+              "leftValue": "={{ $json.stock }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1536,
+        192
+      ],
+      "id": "5e2b05cb-2d52-45b9-b918-1699c68c06b0",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "sendTo": "jdrgdav@gmail.com",
+        "subject": "=🚨 ALERTA: Stock en 0 - {{ $json.nombre_medicamento }}",
+        "message": "=<p><b>Atención Despacho / Reabastecimiento,</b></p>  <p>Se informa que el inventario de un medicamento ha quedado <b>completamente agotado (0 unidades)</b> tras procesar una entrega reciente.</p>  <div style=\"background-color: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545; margin: 15px 0; color: #721c24;\">   <p style=\"margin: 5px 0;\"><b>Medicamento Agotado:</b> <span style=\"font-size: 16px; font-weight: bold;\">{{ $json.nombre_medicamento }}</span></p>   <p style=\"margin: 5px 0;\"><b>Stock Disponible Actual:</b> 0 unidades</p>   <p style=\"margin: 5px 0;\"><b>Última entrega efectuada a:</b> {{ $json.nombre }} (Turno: <b>{{ $json.turno }}</b>)</p> </div>  <p>Por favor, gestionar la orden de compra o reabastecimiento con el proveedor a la brevedad posible para evitar acumulación de pedidos pendientes.</p>  <p><i>Este es un mensaje automático generado por el sistema de inventario.</i></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        176
+      ],
+      "id": "86cd7d52-5fa0-486f-b41d-8949197fb8e1",
+      "name": "Send a message2",
+      "webhookId": "028a1afa-3930-4fc6-b1fa-3fbdd33d7509",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1Ytpu1sQ1mRANRNw",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Get a row1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get a row2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row2": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e3be5a7d-ca4b-47f1-9e8a-f7a6e0b2999c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fe604dda130d191874c5383220465f43ac708c8696a6c73a448a488f35a6b605"
+  },
+  "nodeGroups": [],
+  "id": "gRMAePeLsTadwd2B",
+  "tags": []
+}
